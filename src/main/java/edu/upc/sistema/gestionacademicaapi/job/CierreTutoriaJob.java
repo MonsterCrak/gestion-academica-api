@@ -32,20 +32,26 @@ public class CierreTutoriaJob {
             initialDelay = 30_000)
     @Transactional
     public void cerrarPorFaltaDeConfirmacionDocente() {
-        LocalDateTime limite = LocalDateTime.now().minus(Duration.ofHours(24));
-        List<SolicitudTutoria> candidatas = solicitudRepository
-                .findByEstadoAndFechaHoraFinBefore(EstadoSolicitud.CONFIRMADA, limite);
+        try {
+            LocalDateTime limite = LocalDateTime.now().minus(Duration.ofHours(24));
+            List<SolicitudTutoria> candidatas = solicitudRepository
+                    .findByEstadoAndFechaHoraFinBefore(EstadoSolicitud.CONFIRMADA, limite);
 
-        int cerradas = 0;
-        for (SolicitudTutoria s : candidatas) {
-            if (!Boolean.TRUE.equals(s.getDocenteConfirmoRealizacion())) {
-                s.setEstado(EstadoSolicitud.NO_REALIZADA);
-                solicitudRepository.save(s);
-                cerradas++;
+            int cerradas = 0;
+            for (SolicitudTutoria s : candidatas) {
+                if (!Boolean.TRUE.equals(s.getDocenteConfirmoRealizacion())) {
+                    s.setEstado(EstadoSolicitud.NO_REALIZADA);
+                    solicitudRepository.save(s);
+                    cerradas++;
+                }
             }
-        }
-        if (cerradas > 0) {
-            log.info("Job A: {} solicitudes cerradas como NO_REALIZADA por falta de confirmacion docente", cerradas);
+            if (cerradas > 0) {
+                log.info("Job A: {} solicitudes cerradas como NO_REALIZADA por falta de confirmacion docente", cerradas);
+            }
+        } catch (Exception ex) {
+            // Resiliencia: si las tablas aun no estan listas (BD recien creada) o hay
+            // cualquier transitorio, este job se re-ejecutara en el siguiente fixedDelay.
+            log.warn("Job A omitido este ciclo ({}) — se reintentara en el proximo tick.", ex.getMessage());
         }
     }
 
@@ -53,32 +59,36 @@ public class CierreTutoriaJob {
             initialDelay = 60_000)
     @Transactional
     public void evaluarApelaciones() {
-        LocalDateTime limite = LocalDateTime.now().minus(Duration.ofDays(7));
-        List<SolicitudTutoria> candidatas = solicitudRepository
-                .findByEstadoAndFechaHoraFinBefore(EstadoSolicitud.REALIZADA, limite);
+        try {
+            LocalDateTime limite = LocalDateTime.now().minus(Duration.ofDays(7));
+            List<SolicitudTutoria> candidatas = solicitudRepository
+                    .findByEstadoAndFechaHoraFinBefore(EstadoSolicitud.REALIZADA, limite);
 
-        int promovidas = 0;
-        for (SolicitudTutoria s : candidatas) {
-            long apelantes = confirmacionRepository.countBySolicitud_IdAndApeloTrue(s.getId());
-            int total = s.getTotalConfirmados() != null ? s.getTotalConfirmados() : 0;
+            int promovidas = 0;
+            for (SolicitudTutoria s : candidatas) {
+                long apelantes = confirmacionRepository.countBySolicitud_IdAndApeloTrue(s.getId());
+                int total = s.getTotalConfirmados() != null ? s.getTotalConfirmados() : 0;
 
-            long votosNoSeRealizo = apelantes;
-            long votosSeRealizo = total - apelantes + PESO_VOTO_DOCENTE;
-            boolean mayoriaNoSeRealizo = votosNoSeRealizo > votosSeRealizo;
+                long votosNoSeRealizo = apelantes;
+                long votosSeRealizo = total - apelantes + PESO_VOTO_DOCENTE;
+                boolean mayoriaNoSeRealizo = votosNoSeRealizo > votosSeRealizo;
 
-            boolean superaAbsoluto = apelantes > UMBRAL_APELACIONES_ABS;
-            boolean superaPorcentaje = total > 0 && ((double) apelantes / total) >= UMBRAL_APELACIONES_PORC;
+                boolean superaAbsoluto = apelantes > UMBRAL_APELACIONES_ABS;
+                boolean superaPorcentaje = total > 0 && ((double) apelantes / total) >= UMBRAL_APELACIONES_PORC;
 
-            if (superaAbsoluto || superaPorcentaje || mayoriaNoSeRealizo) {
-                s.setEstado(EstadoSolicitud.REALIZADA_EN_REVISION);
-                solicitudRepository.save(s);
-                promovidas++;
-                log.info("Job B: solicitud {} promovida a REALIZADA_EN_REVISION (apelantes={}, total={})",
-                        s.getId(), apelantes, total);
+                if (superaAbsoluto || superaPorcentaje || mayoriaNoSeRealizo) {
+                    s.setEstado(EstadoSolicitud.REALIZADA_EN_REVISION);
+                    solicitudRepository.save(s);
+                    promovidas++;
+                    log.info("Job B: solicitud {} promovida a REALIZADA_EN_REVISION (apelantes={}, total={})",
+                            s.getId(), apelantes, total);
+                }
             }
-        }
-        if (promovidas > 0) {
-            log.info("Job B: {} solicitudes promovidas a REALIZADA_EN_REVISION", promovidas);
+            if (promovidas > 0) {
+                log.info("Job B: {} solicitudes promovidas a REALIZADA_EN_REVISION", promovidas);
+            }
+        } catch (Exception ex) {
+            log.warn("Job B omitido este ciclo ({}) — se reintentara en el proximo tick.", ex.getMessage());
         }
     }
 }
