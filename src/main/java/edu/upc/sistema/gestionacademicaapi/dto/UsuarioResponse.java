@@ -7,8 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,11 +14,11 @@ import java.util.UUID;
 @Builder
 public class UsuarioResponse {
 
-    private UUID id;
+    private Long id;
     private TipoUsuario tipoUsuario;
     private String identificadorCorporativo;
     private String nombre;
     private String apellidos;
-    private UUID carreraId;
+    private Long carreraId;
     private Boolean activo;
 }

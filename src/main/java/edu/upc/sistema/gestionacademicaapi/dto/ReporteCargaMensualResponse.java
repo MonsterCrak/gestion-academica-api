@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -17,7 +17,7 @@ import java.util.UUID;
 @Builder
 public class ReporteCargaMensualResponse {
 
-    private UUID docenteId;
+    private Long docenteId;
     private String identificadorDocente;
     private String nombreDocente;
     private Integer anio;
@@ -31,12 +31,12 @@ public class ReporteCargaMensualResponse {
     @AllArgsConstructor
     @Builder
     public static class DetalleCarga {
-        private UUID solicitudId;
-        private UUID materiaId;
+        private Long solicitudId;
+        private Long materiaId;
         private String materiaCodigo;
         private String materiaNombre;
-        private java.time.LocalDateTime fechaHoraInicio;
-        private java.time.LocalDateTime fechaHoraFin;
+        private LocalDateTime fechaHoraInicio;
+        private LocalDateTime fechaHoraFin;
         private BigDecimal horasEfectivas;
         private BigDecimal horasRectificadas;
     }

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +26,7 @@ public class MateriaService {
     }
 
     @Transactional(readOnly = true)
-    public MateriaResponse obtener(UUID id) {
+    public MateriaResponse obtener(Long id) {
         return toResponse(buscarPorId(id));
     }
 
@@ -45,7 +44,7 @@ public class MateriaService {
         return toResponse(repository.save(m));
     }
 
-    public Materia buscarPorId(UUID id) {
+    public Materia buscarPorId(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Materia", id));
     }

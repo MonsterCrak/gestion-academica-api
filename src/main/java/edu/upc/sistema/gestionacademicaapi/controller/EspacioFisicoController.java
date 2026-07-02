@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/espacios")
@@ -35,7 +34,7 @@ public class EspacioFisicoController {
     }
 
     @GetMapping("/{id}")
-    public EspacioFisicoResponse obtener(@PathVariable UUID id) {
+    public EspacioFisicoResponse obtener(@PathVariable Long id) {
         return service.obtener(id);
     }
 

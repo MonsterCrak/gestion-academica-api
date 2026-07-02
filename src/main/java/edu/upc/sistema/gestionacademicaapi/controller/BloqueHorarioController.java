@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/bloqueos")
@@ -34,7 +33,7 @@ public class BloqueHorarioController {
     }
 
     @PostMapping("/{id}/desactivar")
-    public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
+    public ResponseEntity<Void> desactivar(@PathVariable Long id) {
         service.desactivar(id);
         return ResponseEntity.noContent().build();
     }

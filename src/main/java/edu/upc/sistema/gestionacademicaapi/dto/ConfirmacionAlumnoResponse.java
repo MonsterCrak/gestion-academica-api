@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -17,9 +16,9 @@ import java.util.UUID;
 @Builder
 public class ConfirmacionAlumnoResponse {
 
-    private UUID id;
-    private UUID solicitudId;
-    private UUID alumnoId;
+    private Long id;
+    private Long solicitudId;
+    private Long alumnoId;
     private String identificadorAlumno;
     private String nombreAlumno;
     private LocalDateTime fechaConfirmacion;

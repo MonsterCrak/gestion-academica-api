@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -19,7 +18,7 @@ import java.util.UUID;
 public class PrestamoCreateRequest {
 
     @NotNull
-    private UUID recursoId;
+    private Long recursoId;
 
     @NotNull
     private LocalDateTime fechaInicio;

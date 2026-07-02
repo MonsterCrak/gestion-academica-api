@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,17 +31,17 @@ public class RecursoService {
     }
 
     @Transactional(readOnly = true)
-    public List<RecursoResponse> listarPorCategoria(UUID categoriaId) {
+    public List<RecursoResponse> listarPorCategoria(Long categoriaId) {
         return repository.findByCategoria_Id(categoriaId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<RecursoResponse> listarPorEspacioActual(UUID espacioId) {
+    public List<RecursoResponse> listarPorEspacioActual(Long espacioId) {
         return repository.findByEspacioActual_Id(espacioId).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public RecursoResponse obtener(UUID id) {
+    public RecursoResponse obtener(Long id) {
         return toResponse(buscarPorId(id));
     }
 
@@ -69,7 +68,7 @@ public class RecursoService {
         return toResponse(repository.save(r));
     }
 
-    public Recurso buscarPorId(UUID id) {
+    public Recurso buscarPorId(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Recurso", id));
     }

@@ -7,16 +7,15 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface DocenteMateriaRepository extends JpaRepository<DocenteMateria, UUID> {
+public interface DocenteMateriaRepository extends JpaRepository<DocenteMateria, Long> {
 
-    List<DocenteMateria> findByDocente_IdAndActivoTrue(UUID docenteId);
+    List<DocenteMateria> findByDocente_IdAndActivoTrue(Long docenteId);
 
-    Optional<DocenteMateria> findByDocente_IdAndMateria_IdAndActivoTrue(UUID docenteId, UUID materiaId);
+    Optional<DocenteMateria> findByDocente_IdAndMateria_IdAndActivoTrue(Long docenteId, Long materiaId);
 
-    List<DocenteMateria> findByMateria_IdAndActivoTrue(UUID materiaId);
+    List<DocenteMateria> findByMateria_IdAndActivoTrue(Long materiaId);
 
-    List<DocenteMateria> findByMateria_IdAndTipoAulaRequeridaAndActivoTrue(UUID materiaId, TipoAula tipoAula);
+    List<DocenteMateria> findByMateria_IdAndTipoAulaRequeridaAndActivoTrue(Long materiaId, TipoAula tipoAula);
 }

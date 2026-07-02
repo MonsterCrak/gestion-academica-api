@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -17,11 +16,11 @@ import java.util.UUID;
 @Builder
 public class PrestamoResponse {
 
-    private UUID id;
-    private UUID recursoId;
+    private Long id;
+    private Long recursoId;
     private String recursoCodigo;
     private String recursoNombre;
-    private UUID usuarioSolicitanteId;
+    private Long usuarioSolicitanteId;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
     private Boolean aceptoTerminos;

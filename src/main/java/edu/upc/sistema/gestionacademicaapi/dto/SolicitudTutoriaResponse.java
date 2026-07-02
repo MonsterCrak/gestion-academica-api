@@ -10,7 +10,6 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -19,11 +18,11 @@ import java.util.UUID;
 @Builder
 public class SolicitudTutoriaResponse {
 
-    private UUID id;
-    private UUID creadorId;
-    private UUID materiaId;
-    private UUID espacioAsignadoId;
-    private UUID docenteAsignadoId;
+    private Long id;
+    private Long creadorId;
+    private Long materiaId;
+    private Long espacioAsignadoId;
+    private Long docenteAsignadoId;
     private TipoAula tipoAulaSolicitada;
     private LocalDateTime fechaHoraInicio;
     private LocalDateTime fechaHoraFin;

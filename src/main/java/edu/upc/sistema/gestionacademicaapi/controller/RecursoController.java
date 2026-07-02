@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/recursos")
@@ -25,15 +24,15 @@ public class RecursoController {
 
     @GetMapping
     public List<RecursoResponse> listar(
-            @RequestParam(required = false) UUID categoriaId,
-            @RequestParam(required = false) UUID espacioActualId) {
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(required = false) Long espacioActualId) {
         if (categoriaId != null) return service.listarPorCategoria(categoriaId);
         if (espacioActualId != null) return service.listarPorEspacioActual(espacioActualId);
         return service.listar();
     }
 
     @GetMapping("/{id}")
-    public RecursoResponse obtener(@PathVariable UUID id) {
+    public RecursoResponse obtener(@PathVariable Long id) {
         return service.obtener(id);
     }
 

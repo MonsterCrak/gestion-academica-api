@@ -9,8 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,7 +17,7 @@ import java.util.UUID;
 public class RecursoCreateRequest {
 
     @NotNull
-    private UUID categoriaId;
+    private Long categoriaId;
 
     private String numeroSerie;
 
@@ -32,5 +30,5 @@ public class RecursoCreateRequest {
     @NotNull
     private TipoMovilidad tipoMovilidad;
 
-    private UUID espacioActualId;
+    private Long espacioActualId;
 }

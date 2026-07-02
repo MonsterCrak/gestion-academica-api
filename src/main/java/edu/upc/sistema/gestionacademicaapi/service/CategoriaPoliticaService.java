@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,7 +25,7 @@ public class CategoriaPoliticaService {
     }
 
     @Transactional(readOnly = true)
-    public CategoriaResponse obtener(UUID id) {
+    public CategoriaResponse obtener(Long id) {
         return toResponse(buscarPorId(id));
     }
 
@@ -41,7 +40,7 @@ public class CategoriaPoliticaService {
         return toResponse(repository.save(c));
     }
 
-    public CategoriaPolitica buscarPorId(UUID id) {
+    public CategoriaPolitica buscarPorId(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("CategoriaPolitica", id));
     }

@@ -8,16 +8,15 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface SolicitudTutoriaRepository extends JpaRepository<SolicitudTutoria, UUID> {
+public interface SolicitudTutoriaRepository extends JpaRepository<SolicitudTutoria, Long> {
 
     Optional<SolicitudTutoria> findByTokenInvitacion(String tokenInvitacion);
 
-    List<SolicitudTutoria> findByCreador_Id(UUID creadorId);
+    List<SolicitudTutoria> findByCreador_Id(Long creadorId);
 
-    List<SolicitudTutoria> findByDocenteAsignado_Id(UUID docenteAsignadoId);
+    List<SolicitudTutoria> findByDocenteAsignado_Id(Long docenteAsignadoId);
 
     List<SolicitudTutoria> findByEstado(EstadoSolicitud estado);
 

@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +23,7 @@ public class DocenteMateriaService {
     private final MateriaService materiaService;
 
     @Transactional(readOnly = true)
-    public List<DocenteMateriaResponse> listarPorDocente(UUID docenteId) {
+    public List<DocenteMateriaResponse> listarPorDocente(Long docenteId) {
         return repository.findByDocente_IdAndActivoTrue(docenteId).stream().map(this::toResponse).toList();
     }
 
@@ -60,7 +59,7 @@ public class DocenteMateriaService {
     }
 
     @Transactional
-    public void desactivar(UUID id) {
+    public void desactivar(Long id) {
         Usuario yo = currentUser.obtenerActual();
         DocenteMateria dm = repository.findById(id)
                 .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Preferencia no encontrada"));

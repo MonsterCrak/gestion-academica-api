@@ -96,12 +96,12 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional(readOnly = true)
-    public SolicitudTutoriaResponse obtener(UUID id) {
+    public SolicitudTutoriaResponse obtener(Long id) {
         return toResponse(buscarPorId(id));
     }
 
     @Transactional(readOnly = true)
-    public List<ConfirmacionAlumnoResponse> listarConfirmaciones(UUID solicitudId) {
+    public List<ConfirmacionAlumnoResponse> listarConfirmaciones(Long solicitudId) {
         buscarPorId(solicitudId);
         return confirmacionRepository.findBySolicitud_Id(solicitudId).stream()
                 .map(this::toConfirmacionResponse).toList();
@@ -137,7 +137,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public void asignarDocente(UUID solicitudId, AsignarDocenteRequest req) {
+    public void asignarDocente(Long solicitudId, AsignarDocenteRequest req) {
         Usuario yo = currentUser.obtenerActual();
         if (yo.getTipoUsuario() != TipoUsuario.DOCENTE
                 && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
@@ -165,7 +165,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public SolicitudTutoriaResponse confirmarRealizacion(UUID solicitudId) {
+    public SolicitudTutoriaResponse confirmarRealizacion(Long solicitudId) {
         Usuario docente = currentUser.obtenerActual();
         SolicitudTutoria s = buscarPorId(solicitudId);
         if (s.getDocenteAsignado() == null || !s.getDocenteAsignado().getId().equals(docente.getId())) {
@@ -202,7 +202,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public ConfirmacionAlumnoResponse marcarAsistencia(UUID solicitudId, ConfirmarAsistenciaRequest req) {
+    public ConfirmacionAlumnoResponse marcarAsistencia(Long solicitudId, ConfirmarAsistenciaRequest req) {
         Usuario alumno = currentUser.obtenerActual();
         SolicitudTutoria s = buscarPorId(solicitudId);
         verificarVentanaAlumno(s, LocalDateTime.now());
@@ -218,7 +218,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public ConfirmacionAlumnoResponse apelar(UUID solicitudId, ApelarRequest req) {
+    public ConfirmacionAlumnoResponse apelar(Long solicitudId, ApelarRequest req) {
         Usuario alumno = currentUser.obtenerActual();
         SolicitudTutoria s = buscarPorId(solicitudId);
         verificarVentanaAlumno(s, LocalDateTime.now());
@@ -242,7 +242,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public ConfirmacionAlumnoResponse retirarApelacion(UUID solicitudId) {
+    public ConfirmacionAlumnoResponse retirarApelacion(Long solicitudId) {
         Usuario alumno = currentUser.obtenerActual();
         SolicitudTutoria s = buscarPorId(solicitudId);
         verificarVentanaAlumno(s, LocalDateTime.now());
@@ -262,7 +262,7 @@ public class SolicitudTutoriaService {
     }
 
     @Transactional
-    public SolicitudTutoriaResponse resolverRevision(UUID solicitudId, ResolverRevisionRequest req) {
+    public SolicitudTutoriaResponse resolverRevision(Long solicitudId, ResolverRevisionRequest req) {
         currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
         SolicitudTutoria s = buscarPorId(solicitudId);
         if (s.getEstado() != EstadoSolicitud.REALIZADA_EN_REVISION) {
@@ -384,7 +384,7 @@ public class SolicitudTutoriaService {
         return ratio >= UMBRAL_PORCENTAJE;
     }
 
-    private SolicitudTutoria buscarPorId(UUID id) {
+    private SolicitudTutoria buscarPorId(Long id) {
         return solicitudRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("SolicitudTutoria", id));
     }

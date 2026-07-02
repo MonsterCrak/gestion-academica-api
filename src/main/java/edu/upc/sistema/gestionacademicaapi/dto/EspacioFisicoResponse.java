@@ -7,8 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,7 +14,7 @@ import java.util.UUID;
 @Builder
 public class EspacioFisicoResponse {
 
-    private UUID id;
+    private Long id;
     private String codigo;
     private TipoEspacio tipoEspacio;
     private Integer aforo;

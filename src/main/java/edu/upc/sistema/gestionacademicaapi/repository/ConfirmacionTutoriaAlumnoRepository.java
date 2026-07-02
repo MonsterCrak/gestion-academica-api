@@ -7,16 +7,15 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface ConfirmacionTutoriaAlumnoRepository extends JpaRepository<ConfirmacionTutoriaAlumno, UUID> {
+public interface ConfirmacionTutoriaAlumnoRepository extends JpaRepository<ConfirmacionTutoriaAlumno, Long> {
 
-    List<ConfirmacionTutoriaAlumno> findBySolicitud_Id(UUID solicitudId);
+    List<ConfirmacionTutoriaAlumno> findBySolicitud_Id(Long solicitudId);
 
-    Optional<ConfirmacionTutoriaAlumno> findBySolicitud_IdAndAlumno_Id(UUID solicitudId, UUID alumnoId);
+    Optional<ConfirmacionTutoriaAlumno> findBySolicitud_IdAndAlumno_Id(Long solicitudId, Long alumnoId);
 
-    long countBySolicitud_IdAndEstadoConfirmacion(UUID solicitudId, EstadoConfirmacion estadoConfirmacion);
+    long countBySolicitud_IdAndEstadoConfirmacion(Long solicitudId, EstadoConfirmacion estadoConfirmacion);
 
-    long countBySolicitud_IdAndApeloTrue(UUID solicitudId);
+    long countBySolicitud_IdAndApeloTrue(Long solicitudId);
 }

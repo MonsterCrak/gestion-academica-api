@@ -9,7 +9,6 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -18,10 +17,10 @@ import java.util.UUID;
 @Builder
 public class BloqueHorarioResponse {
 
-    private UUID id;
+    private Long id;
     private TipoBloqueo tipoBloqueo;
-    private UUID espacioFisicoId;
-    private UUID recursoId;
+    private Long espacioFisicoId;
+    private Long recursoId;
     private LocalDate fechaDesde;
     private LocalDate fechaHasta;
     private LocalTime horaInicio;

@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -90,7 +89,7 @@ public class PrestamoIndividualService {
     }
 
     @Transactional
-    public PrestamoResponse devolver(UUID prestamoId) {
+    public PrestamoResponse devolver(Long prestamoId) {
         Usuario yo = currentUser.obtenerActual();
         PrestamoIndividual pi = repository.findById(prestamoId)
                 .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Prestamo no encontrado"));

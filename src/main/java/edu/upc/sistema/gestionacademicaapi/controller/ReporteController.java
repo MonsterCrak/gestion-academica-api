@@ -9,8 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/reportes")
 @RequiredArgsConstructor
@@ -21,7 +19,7 @@ public class ReporteController {
 
     @GetMapping("/carga-mensual")
     public ReporteCargaMensualResponse cargaMensual(
-            @RequestParam UUID docenteId,
+            @RequestParam Long docenteId,
             @RequestParam int anio,
             @RequestParam int mes) {
         return reporteService.cargaMensual(docenteId, anio, mes);
@@ -31,7 +29,7 @@ public class ReporteController {
     public ReporteCargaMensualResponse miCargaMensual(
             @RequestParam int anio,
             @RequestParam int mes) {
-        UUID miId = currentUser.obtenerActual().getId();
+        Long miId = currentUser.obtenerActual().getId();
         return reporteService.cargaMensual(miId, anio, mes);
     }
 }

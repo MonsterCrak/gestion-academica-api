@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +36,7 @@ public class EspacioFisicoService {
     }
 
     @Transactional(readOnly = true)
-    public EspacioFisicoResponse obtener(UUID id) {
+    public EspacioFisicoResponse obtener(Long id) {
         return toResponse(buscarPorId(id));
     }
 
@@ -57,7 +56,7 @@ public class EspacioFisicoService {
         return toResponse(repository.save(e));
     }
 
-    public EspacioFisico buscarPorId(UUID id) {
+    public EspacioFisico buscarPorId(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("EspacioFisico", id));
     }

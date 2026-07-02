@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -18,9 +17,9 @@ import java.util.UUID;
 @Builder
 public class DocenteMateriaResponse {
 
-    private UUID id;
-    private UUID docenteId;
-    private UUID materiaId;
+    private Long id;
+    private Long docenteId;
+    private Long materiaId;
     private TipoAula tipoAulaRequerida;
     private ModalidadAsignacion modalidadAsignacion;
     private LocalDateTime fechaAlta;

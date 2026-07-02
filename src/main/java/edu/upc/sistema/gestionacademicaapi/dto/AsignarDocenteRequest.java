@@ -7,8 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,5 +15,5 @@ import java.util.UUID;
 public class AsignarDocenteRequest {
 
     @NotNull
-    private UUID docenteId;
+    private Long docenteId;
 }

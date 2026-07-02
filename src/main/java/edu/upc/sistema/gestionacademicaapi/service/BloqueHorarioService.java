@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -70,7 +69,7 @@ public class BloqueHorarioService {
     }
 
     @Transactional
-    public void desactivar(UUID id) {
+    public void desactivar(Long id) {
         currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
         BloqueHorario b = repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("BloqueHorario", id));

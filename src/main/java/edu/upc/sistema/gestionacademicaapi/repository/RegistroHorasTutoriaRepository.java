@@ -6,15 +6,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Repository
-public interface RegistroHorasTutoriaRepository extends JpaRepository<RegistroHorasTutoria, UUID> {
+public interface RegistroHorasTutoriaRepository extends JpaRepository<RegistroHorasTutoria, Long> {
 
-    List<RegistroHorasTutoria> findByDocente_Id(UUID docenteId);
+    List<RegistroHorasTutoria> findByDocente_Id(Long docenteId);
 
     List<RegistroHorasTutoria> findByDocente_IdAndFechaHoraInicioRealBetween(
-            UUID docenteId, LocalDateTime desde, LocalDateTime hasta);
+            Long docenteId, LocalDateTime desde, LocalDateTime hasta);
 
-    List<RegistroHorasTutoria> findBySolicitud_Id(UUID solicitudId);
+    List<RegistroHorasTutoria> findBySolicitud_Id(Long solicitudId);
 }

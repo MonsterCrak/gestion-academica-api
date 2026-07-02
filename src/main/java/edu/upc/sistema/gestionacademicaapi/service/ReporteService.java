@@ -17,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +26,7 @@ public class ReporteService {
     private final UsuarioRepository usuarioRepository;
 
     @Transactional(readOnly = true)
-    public ReporteCargaMensualResponse cargaMensual(UUID docenteId, int anio, int mes) {
+    public ReporteCargaMensualResponse cargaMensual(Long docenteId, int anio, int mes) {
         Usuario docente = usuarioRepository.findById(docenteId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", docenteId));
 
@@ -62,7 +61,7 @@ public class ReporteService {
                 "Use cargaMensual con el id del docente autenticado desde el controller");
     }
 
-    public UUID validarDocenteActualYCargar(CurrentUserService currentUser, int anio, int mes) {
+    public Long validarDocenteActualYCargar(CurrentUserService currentUser, int anio, int mes) {
         Usuario yo = currentUser.obtenerActual();
         if (yo.getTipoUsuario() != TipoUsuario.DOCENTE) {
             throw new AccesoNoAutorizadoException("Esta vista es solo para docentes");

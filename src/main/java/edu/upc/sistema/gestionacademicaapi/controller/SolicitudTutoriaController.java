@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/tutorias")
@@ -36,12 +35,12 @@ public class SolicitudTutoriaController {
     }
 
     @GetMapping("/{id}")
-    public SolicitudTutoriaResponse obtener(@PathVariable UUID id) {
+    public SolicitudTutoriaResponse obtener(@PathVariable Long id) {
         return service.obtener(id);
     }
 
     @GetMapping("/{id}/confirmaciones")
-    public List<ConfirmacionAlumnoResponse> listarConfirmaciones(@PathVariable UUID id) {
+    public List<ConfirmacionAlumnoResponse> listarConfirmaciones(@PathVariable Long id) {
         return service.listarConfirmaciones(id);
     }
 
@@ -59,39 +58,39 @@ public class SolicitudTutoriaController {
 
     @PostMapping("/{id}/asignar-docente")
     public SolicitudTutoriaResponse asignarDocente(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @Valid @RequestBody AsignarDocenteRequest req) {
         service.asignarDocente(id, req);
         return service.obtener(id);
     }
 
     @PostMapping("/{id}/confirmar-realizacion")
-    public SolicitudTutoriaResponse confirmarRealizacion(@PathVariable UUID id) {
+    public SolicitudTutoriaResponse confirmarRealizacion(@PathVariable Long id) {
         return service.confirmarRealizacion(id);
     }
 
     @PostMapping("/{id}/asistencia")
     public ConfirmacionAlumnoResponse marcarAsistencia(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @Valid @RequestBody ConfirmarAsistenciaRequest req) {
         return service.marcarAsistencia(id, req);
     }
 
     @PostMapping("/{id}/apelar")
     public ConfirmacionAlumnoResponse apelar(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @Valid @RequestBody ApelarRequest req) {
         return service.apelar(id, req);
     }
 
     @DeleteMapping("/{id}/apelar")
-    public ConfirmacionAlumnoResponse retirarApelacion(@PathVariable UUID id) {
+    public ConfirmacionAlumnoResponse retirarApelacion(@PathVariable Long id) {
         return service.retirarApelacion(id);
     }
 
     @PostMapping("/{id}/resolver-revision")
     public SolicitudTutoriaResponse resolverRevision(
-            @PathVariable UUID id,
+            @PathVariable Long id,
             @Valid @RequestBody ResolverRevisionRequest req) {
         return service.resolverRevision(id, req);
     }

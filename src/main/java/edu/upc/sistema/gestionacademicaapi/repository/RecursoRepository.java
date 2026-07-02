@@ -7,16 +7,15 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface RecursoRepository extends JpaRepository<Recurso, UUID> {
+public interface RecursoRepository extends JpaRepository<Recurso, Long> {
 
     Optional<Recurso> findByCodigoInventario(String codigoInventario);
 
-    List<Recurso> findByCategoria_Id(UUID categoriaId);
+    List<Recurso> findByCategoria_Id(Long categoriaId);
 
-    List<Recurso> findByEspacioActual_Id(UUID espacioActualId);
+    List<Recurso> findByEspacioActual_Id(Long espacioActualId);
 
-    List<Recurso> findByEspacioActual_IdAndEstado(UUID espacioActualId, EstadoRecurso estado);
+    List<Recurso> findByEspacioActual_IdAndEstado(Long espacioActualId, EstadoRecurso estado);
 }

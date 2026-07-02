@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/docente-materias")
@@ -30,7 +29,7 @@ public class DocenteMateriaController {
     }
 
     @GetMapping
-    public List<DocenteMateriaResponse> listar(@RequestParam UUID docenteId) {
+    public List<DocenteMateriaResponse> listar(@RequestParam Long docenteId) {
         return service.listarPorDocente(docenteId);
     }
 
@@ -40,7 +39,7 @@ public class DocenteMateriaController {
     }
 
     @PostMapping("/{id}/desactivar")
-    public ResponseEntity<Void> desactivar(@PathVariable UUID id) {
+    public ResponseEntity<Void> desactivar(@PathVariable Long id) {
         service.desactivar(id);
         return ResponseEntity.noContent().build();
     }

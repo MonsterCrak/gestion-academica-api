@@ -8,8 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.UUID;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,13 +15,13 @@ import java.util.UUID;
 @Builder
 public class RecursoResponse {
 
-    private UUID id;
-    private UUID categoriaId;
+    private Long id;
+    private Long categoriaId;
     private String numeroSerie;
     private String codigoInventario;
     private String nombre;
     private TipoMovilidad tipoMovilidad;
-    private UUID espacioActualId;
+    private Long espacioActualId;
     private EstadoRecurso estado;
     private Boolean requiereUbicacionFisica;
 }

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/categorias")
@@ -28,7 +27,7 @@ public class CategoriaController {
     }
 
     @GetMapping("/{id}")
-    public CategoriaResponse obtener(@PathVariable UUID id) {
+    public CategoriaResponse obtener(@PathVariable Long id) {
         return service.obtener(id);
     }
 

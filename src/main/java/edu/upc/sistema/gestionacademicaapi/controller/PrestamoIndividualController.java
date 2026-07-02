@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/prestamos")
@@ -33,7 +32,7 @@ public class PrestamoIndividualController {
     }
 
     @PostMapping("/{id}/devolver")
-    public PrestamoResponse devolver(@PathVariable UUID id) {
+    public PrestamoResponse devolver(@PathVariable Long id) {
         return service.devolver(id);
     }
 }

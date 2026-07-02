@@ -2,15 +2,13 @@ package edu.upc.sistema.gestionacademicaapi.exception;
 
 import lombok.Getter;
 
-import java.util.UUID;
-
 @Getter
 public class RecursoNoEncontradoException extends RuntimeException {
 
     private final String recurso;
-    private final UUID id;
+    private final Long id;
 
-    public RecursoNoEncontradoException(String recurso, UUID id) {
+    public RecursoNoEncontradoException(String recurso, Long id) {
         super("No se encontro " + recurso + " con id " + id);
         this.recurso = recurso;
         this.id = id;
