@@ -42,6 +42,41 @@ docker compose down
 docker compose down -v
 ```
 
+### Verificacion rapida (smoke test)
+
+Despues de `docker compose up -d --build`, esperar ~15 s y correr:
+
+```bash
+# 1. Ambos contenedores deben estar "healthy"
+docker ps --filter "name=gestion-"
+# gestion-backend    Up X minutes (healthy)
+# gestion-postgres   Up X minutes (healthy)
+
+# 2. Logs del backend deben terminar con "Started GestionAcademica..."
+docker compose logs backend | tail -5
+
+# 3. Swagger UI responde 200
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/api/swagger-ui/index.html
+# Esperado: 200
+
+# 4. OpenAPI docs responde 200
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/api/v3/api-docs
+# Esperado: 200
+
+# 5. Generar token dev (sin auth previa)
+curl -X POST http://localhost:8080/api/dev/token \
+  -H "Content-Type: application/json" \
+  -d '{"identificadorCorporativo":"u202010101","tipoUsuario":"ESTUDIANTE","nombre":"Ana","apellidos":"Perez"}'
+# Esperado: JSON con campo "token" (JWT firmado)
+
+# 6. Verificar datos sembrados (solo primera vez, cuando el volumen esta vacio)
+docker exec gestion-postgres psql -U postgres -d gestionbd \
+  -c "SELECT count(*) AS usuarios FROM usuario UNION ALL SELECT count(*), 'materias' FROM materia;"
+# Esperado: 7 usuarios, 3 materias
+```
+
+Si todos los pasos dan el valor esperado, el sistema esta listo para usar con Postman.
+
 ### Variables de entorno para Docker (opcionales)
 
 Todas tienen defaults razonables para desarrollo local. Para uso real **definir valores propios** y no commitearlos. Crear un archivo `.env` en la raiz del proyecto:
@@ -82,6 +117,51 @@ docker exec -it gestion-postgres psql -U postgres -d gestionbd -c "SELECT * FROM
 ```bash
 docker compose down -v   # Borra volumen de postgres
 docker compose up -d     # Re-crea y ejecuta seed.sql automaticamente
+```
+
+### Troubleshooting
+
+| Sintoma | Causa probable | Solucion |
+|---|---|---|
+| `docker compose` no se reconoce | Docker Desktop no instalado o no corriendo | Instalar Docker Desktop, esperar a que el icono de la ballena deje de animarse |
+| `Bind for 0.0.0.0:8080 failed: port is already allocated` | Otro proceso usa el puerto (ej: `java.exe` de una corrida nativa anterior) | Windows: `netstat -ano \| findstr :8080` y `taskkill /PID <pid> /F`. O cambiar `BACKEND_PORT=8090` en `.env` |
+| `Bind for 0.0.0.0:5432 failed` | PostgreSQL local corriendo en el host | Detener el servicio de PostgreSQL local, o cambiar `POSTGRES_PORT=5433` en `.env` |
+| `gestion-backend` queda en `Restarting` o `Exit 1` | Error de build o de conexion a Postgres | `docker compose logs backend` para ver el error especifico |
+| `gestion-backend` queda en `(unhealthy)` | El healthcheck no responde 200 en Swagger UI | Verificar logs: probablemente tablas no creadas o `DevTokenController` no carga |
+| `curl /api/dev/token` devuelve 404 | Falta el perfil `dev` (controller tiene `@Profile({"dev","default"})`) | Verificar `.env` tiene `SPRING_PROFILES_ACTIVE=dev,docker` y rebuildear |
+| `curl /api/dev/token` devuelve 500 con `"relation X does not exist"` | Hibernate no creo las tablas: `JPA_DDL_AUTO=none` | Crear `.env` con `JPA_DDL_AUTO=update` y `docker compose up -d --build` |
+| Cualquier endpoint protegido devuelve 401 | JWT no enviado o invalido | Agregar header `Authorization: Bearer <token>` (generar primero con `/api/dev/token`) |
+| Cualquier endpoint publico (`/api/materias`) devuelve 500 | Falta `JPA_DDL_AUTO=update` (idem arriba) | Crear `.env` con `JPA_DDL_AUTO=update` y rebuild |
+| Volumen postgres tiene datos viejos de otra rama | El volumen se reutiliza entre rebuilds | `docker compose down -v && docker compose up -d --build` (resetea todo) |
+| `docker compose up` tarda 10+ min | Primera vez descargando imagenes base (`eclipse-temurin:26`, `postgres:18-alpine`) y dependencias Maven | Normal en la primera corrida. Las siguientes son ~30 s |
+
+### Comandos utiles de referencia
+
+```bash
+# Ver logs solo del backend (ultimas 100 lineas)
+docker compose logs --tail 100 backend
+
+# Seguir logs en vivo filtrados por errores
+docker compose logs -f backend | grep -iE "error|exception"
+
+# Entrar al contenedor del backend (shell)
+docker exec -it gestion-backend sh
+
+# Entrar a PostgreSQL directamente
+docker exec -it gestion-postgres psql -U postgres -d gestionbd
+
+# Inspeccionar variables de entorno del backend
+docker inspect gestion-backend --format '{{range .Config.Env}}{{println .}}{{end}}'
+
+# Reconstruir solo la imagen del backend (sin tocar Postgres)
+docker compose build backend
+
+# Forzar recreacion del backend (baja y sube)
+docker compose up -d --force-recreate backend
+
+# Ver tamanio de imagenes/volumenes
+docker images gestion-academica-api
+docker volume ls | grep gestion
 ```
 
 ---
