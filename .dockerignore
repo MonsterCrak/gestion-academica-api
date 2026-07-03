@@ -1,0 +1,45 @@
+# Control de versiones
+.git
+.gitignore
+.gitattributes
+
+# IDEs
+.idea
+*.iml
+*.iws
+*.ipr
+.vscode
+
+# Build outputs (se regeneran dentro del contenedor)
+target/
+build/
+out/
+*.class
+*.jar
+!target/dependency-jars/
+
+# Maven wrapper jar (no necesario para build en contenedor, se usa el de la imagen)
+.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# Variables de entorno locales (nunca commitear secretos)
+.env
+.env.local
+.env.*.local
+
+# Documentacion que no va al contenedor
+*.md
+!README.md
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.docker/
+
+# Temporal
+tmp/
+temp/

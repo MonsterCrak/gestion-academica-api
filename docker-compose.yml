@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: gestion-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gestionbd}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      TZ: America/Lima
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./scripts/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gestionbd}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - gestion-net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gestion-academica-api:local
+    container_name: gestion-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-gestionbd}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      TZ: America/Lima
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - backend_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/api/swagger-ui/index.html || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    networks:
+      - gestion-net
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: gestion-postgres-data
+  backend_uploads:
+    name: gestion-backend-uploads
+
+networks:
+  gestion-net:
+    name: gestion-net
+    driver: bridge

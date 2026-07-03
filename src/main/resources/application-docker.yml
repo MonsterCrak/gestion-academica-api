@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: gestion-academica-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://postgres:5432/gestionbd}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      # update = crea tablas si no existen, actualiza schema sin borrar datos.
+      # Para produccion real se debe usar Flyway (Bloque 6.1 del gaps doc)
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: America/Lima
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+logging:
+  level:
+    root: INFO
+    edu.upc.sistema: INFO
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Zona horaria del JVM (PET segun Obsidian seccion 7)
+TZ: America/Lima
