@@ -1,5 +1,6 @@
 package edu.upc.sistema.gestionacademicaapi.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,4 +47,12 @@ public class Usuario {
 
     @Column(name = "activo", nullable = false)
     private Boolean activo;
+
+    @Column(name = "password_hash", nullable = false, length = 100)
+    private String passwordHash;
+
+    @JsonIgnore
+    public String getPasswordHash() {
+        return passwordHash;
+    }
 }

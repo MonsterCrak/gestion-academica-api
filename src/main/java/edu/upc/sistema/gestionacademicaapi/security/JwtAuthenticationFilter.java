@@ -1,5 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.security;
 
+import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
+import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -18,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -28,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final UsuarioRepository usuarioRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -44,15 +48,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = jwtService.parseClaims(token);
             String identificador = claims.getSubject();
-            String tipoUsuario = claims.get("tipoUsuario", String.class);
 
-            if (identificador == null || tipoUsuario == null) {
-                log.debug("Token sin subject o tipoUsuario");
+            if (identificador == null) {
+                log.debug("Token sin subject");
                 chain.doFilter(request, response);
                 return;
             }
 
-            String rol = "ROLE_" + tipoUsuario;
+            Optional<Usuario> opt = usuarioRepository.findByIdentificadorCorporativo(identificador);
+            if (opt.isEmpty()) {
+                log.debug("Usuario del token no existe en BD: {}", identificador);
+                SecurityContextHolder.clearContext();
+                chain.doFilter(request, response);
+                return;
+            }
+
+            Usuario usuario = opt.get();
+            if (Boolean.FALSE.equals(usuario.getActivo())) {
+                log.debug("Usuario inactivo: {}", identificador);
+                SecurityContextHolder.clearContext();
+                chain.doFilter(request, response);
+                return;
+            }
+
+            String rol = "ROLE_" + usuario.getTipoUsuario().name();
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     identificador,
                     null,
