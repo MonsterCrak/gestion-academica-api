@@ -3,7 +3,6 @@ package edu.upc.sistema.gestionacademicaapi.service;
 import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
 import edu.upc.sistema.gestionacademicaapi.exception.AccesoNoAutorizadoException;
-import edu.upc.sistema.gestionacademicaapi.exception.RecursoNoEncontradoException;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -18,8 +17,12 @@ public class CurrentUserService {
 
     public Usuario obtenerActual() {
         String identificador = identificadorAutenticado();
-        return usuarioRepository.findByIdentificadorCorporativo(identificador)
-                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", identificador));
+        Usuario usuario = usuarioRepository.findByIdentificadorCorporativo(identificador)
+                .orElseThrow(() -> new AccesoNoAutorizadoException("USUARIO_INEXISTENTE"));
+        if (Boolean.FALSE.equals(usuario.getActivo())) {
+            throw new AccesoNoAutorizadoException("USUARIO_INACTIVO");
+        }
+        return usuario;
     }
 
     public String identificadorAutenticado() {
