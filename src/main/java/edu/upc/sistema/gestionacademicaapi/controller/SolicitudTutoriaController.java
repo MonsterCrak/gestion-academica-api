@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/tutorias")
+@RequestMapping("/tutorias-legacy")
 @RequiredArgsConstructor
 public class SolicitudTutoriaController {
 

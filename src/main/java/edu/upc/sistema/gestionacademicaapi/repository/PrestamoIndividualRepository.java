@@ -12,9 +12,13 @@ public interface PrestamoIndividualRepository extends JpaRepository<PrestamoIndi
 
     List<PrestamoIndividual> findByUsuarioSolicitante_IdAndEstado(Long usuarioSolicitanteId, EstadoPrestamo estado);
 
+    List<PrestamoIndividual> findByUsuarioSolicitante_IdOrderByFechaInicioDesc(Long usuarioSolicitanteId);
+
     List<PrestamoIndividual> findByRecurso_IdAndEstado(Long recursoId, EstadoPrestamo estado);
 
     long countByUsuarioSolicitante_IdAndEstado(Long usuarioSolicitanteId, EstadoPrestamo estado);
 
     List<PrestamoIndividual> findByEstado(EstadoPrestamo estado);
+
+    List<PrestamoIndividual> findByEstadoOrderByFechaFinAsc(EstadoPrestamo estado);
 }

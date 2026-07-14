@@ -8,7 +8,9 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -43,4 +45,16 @@ public class EspacioFisico {
 
     @Column(name = "permitir_reserva_completa", nullable = false)
     private Boolean permitirReservaCompleta;
+
+    @Column(name = "activo", nullable = false)
+    private Boolean activo;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
+
+    @PrePersist
+    void prePersist() {
+        if (activo == null) activo = true;
+    }
 }

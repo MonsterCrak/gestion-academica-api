@@ -20,4 +20,6 @@ public interface EspacioFisicoRepository extends JpaRepository<EspacioFisico, Lo
     List<EspacioFisico> findByPermitirReservaCompletaTrueAndTipoEspacio(TipoEspacio tipoEspacio);
 
     List<EspacioFisico> findByPermitirPrestamoIndividualTrueAndTipoEspacio(TipoEspacio tipoEspacio);
+
+    long countByActivoTrue();
 }

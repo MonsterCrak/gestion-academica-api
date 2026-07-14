@@ -1,5 +1,6 @@
 package edu.upc.sistema.gestionacademicaapi.controller;
 
+import edu.upc.sistema.gestionacademicaapi.dto.DevolucionRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.PrestamoCreateRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.PrestamoResponse;
 import edu.upc.sistema.gestionacademicaapi.service.PrestamoIndividualService;
@@ -31,8 +32,14 @@ public class PrestamoIndividualController {
         return service.listarMios();
     }
 
+    @GetMapping("/activos")
+    public List<PrestamoResponse> activos() {
+        return service.listarActivos();
+    }
+
     @PostMapping("/{id}/devolver")
-    public PrestamoResponse devolver(@PathVariable Long id) {
-        return service.devolver(id);
+    public PrestamoResponse devolver(@PathVariable Long id,
+                                     @RequestBody(required = false) DevolucionRequest req) {
+        return service.devolver(id, req);
     }
 }

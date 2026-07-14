@@ -3,6 +3,7 @@ package edu.upc.sistema.gestionacademicaapi.controller;
 import edu.upc.sistema.gestionacademicaapi.dto.UsuarioCreateRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.UsuarioResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.UsuarioUpdateRequest;
+import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
 import edu.upc.sistema.gestionacademicaapi.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.util.List;
 
 @RestController
 @RequestMapping("/usuarios")
@@ -35,6 +37,12 @@ public class UsuarioController {
     @GetMapping
     public Page<UsuarioResponse> listar(Pageable pageable) {
         return usuarioService.listar(pageable);
+    }
+
+    /** Docentes activos (para elegir avalista de reservas). Cualquier usuario autenticado. */
+    @GetMapping("/docentes")
+    public List<UsuarioResponse> docentes() {
+        return usuarioService.listarPorTipo(TipoUsuario.DOCENTE);
     }
 
     @GetMapping("/{id}")

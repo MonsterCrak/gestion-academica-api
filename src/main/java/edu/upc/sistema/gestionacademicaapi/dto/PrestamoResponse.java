@@ -1,6 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.dto;
 
 import edu.upc.sistema.gestionacademicaapi.enums.EstadoPrestamo;
+import edu.upc.sistema.gestionacademicaapi.enums.ModalidadPrestamo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,8 +22,13 @@ public class PrestamoResponse {
     private String recursoCodigo;
     private String recursoNombre;
     private Long usuarioSolicitanteId;
+    private String usuarioNombre;
+    private ModalidadPrestamo modalidad;
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
+    private LocalDateTime fechaDevolucion;
     private Boolean aceptoTerminos;
     private EstadoPrestamo estado;
+    /** Días de retraso respecto a fechaFin (0 si no hay retraso). */
+    private long diasRetraso;
 }

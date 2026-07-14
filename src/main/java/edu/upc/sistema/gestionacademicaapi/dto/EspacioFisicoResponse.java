@@ -20,4 +20,5 @@ public class EspacioFisicoResponse {
     private Integer aforo;
     private Boolean permitirPrestamoIndividual;
     private Boolean permitirReservaCompleta;
+    private Boolean activo;
 }

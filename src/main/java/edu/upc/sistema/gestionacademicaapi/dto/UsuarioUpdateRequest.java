@@ -1,6 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.dto;
 
 import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,10 @@ public class UsuarioUpdateRequest {
 
     @Size(max = 80)
     private String identificadorCorporativo;
+
+    @Email
+    @Size(max = 160)
+    private String email;
 
     @Size(max = 120)
     private String nombre;

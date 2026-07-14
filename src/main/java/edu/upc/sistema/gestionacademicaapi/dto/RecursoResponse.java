@@ -17,11 +17,13 @@ public class RecursoResponse {
 
     private Long id;
     private Long categoriaId;
+    private String categoriaNombre;
     private String numeroSerie;
     private String codigoInventario;
     private String nombre;
     private TipoMovilidad tipoMovilidad;
     private Long espacioActualId;
+    private String espacioActualCodigo;
     private EstadoRecurso estado;
     private Boolean requiereUbicacionFisica;
 }

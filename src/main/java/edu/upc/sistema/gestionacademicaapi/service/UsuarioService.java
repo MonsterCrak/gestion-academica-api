@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UsuarioService {
@@ -32,10 +34,16 @@ public class UsuarioService {
             throw new ReglaNegocioException("IDENTIFICADOR_DUPLICADO",
                     "Ya existe un usuario con ese identificador corporativo");
         }
+        if (req.getEmail() != null && !req.getEmail().isBlank()
+                && usuarioRepository.existsByEmailIgnoreCase(req.getEmail())) {
+            throw new ReglaNegocioException("EMAIL_DUPLICADO",
+                    "Ya existe un usuario con ese correo institucional");
+        }
 
         Usuario u = Usuario.builder()
                 .tipoUsuario(req.getTipoUsuario())
                 .identificadorCorporativo(req.getIdentificadorCorporativo())
+                .email(req.getEmail())
                 .nombre(req.getNombre())
                 .apellidos(req.getApellidos())
                 .carreraId(req.getCarreraId())
@@ -51,6 +59,14 @@ public class UsuarioService {
     public Page<UsuarioResponse> listar(Pageable pageable) {
         currentUserService.exigirTipo(TipoUsuario.ADMINISTRATIVO);
         return usuarioRepository.findAll(pageable).map(this::toResponse);
+    }
+
+    /** Lista usuarios activos de un tipo (p. ej. docentes avalistas). Accesible a cualquier autenticado. */
+    @Transactional(readOnly = true)
+    public List<UsuarioResponse> listarPorTipo(TipoUsuario tipo) {
+        currentUserService.obtenerActual();
+        return usuarioRepository.findByTipoUsuarioAndActivoTrueOrderByApellidosAsc(tipo)
+                .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -100,6 +116,13 @@ public class UsuarioService {
             }
             u.setIdentificadorCorporativo(req.getIdentificadorCorporativo());
         }
+        if (req.getEmail() != null && !req.getEmail().equalsIgnoreCase(u.getEmail())) {
+            if (usuarioRepository.existsByEmailIgnoreCase(req.getEmail())) {
+                throw new ReglaNegocioException("EMAIL_DUPLICADO",
+                        "Ya existe un usuario con ese correo institucional");
+            }
+            u.setEmail(req.getEmail());
+        }
         if (req.getTipoUsuario() != null) {
             u.setTipoUsuario(req.getTipoUsuario());
         }
@@ -134,10 +157,15 @@ public class UsuarioService {
                 .id(u.getId())
                 .tipoUsuario(u.getTipoUsuario())
                 .identificadorCorporativo(u.getIdentificadorCorporativo())
+                .email(u.getEmail())
                 .nombre(u.getNombre())
                 .apellidos(u.getApellidos())
                 .carreraId(u.getCarreraId())
                 .activo(u.getActivo())
+                .estado(u.getEstado())
+                .tieneDeuda(u.getTieneDeuda())
+                .penalizadoHasta(u.getPenalizadoHasta())
+                .bloqueadoParaOperar(u.isBloqueadoParaOperar())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package edu.upc.sistema.gestionacademicaapi.dto;
 
+import edu.upc.sistema.gestionacademicaapi.enums.ModalidadPrestamo;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -7,8 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -21,11 +20,9 @@ public class PrestamoCreateRequest {
     private Long recursoId;
 
     @NotNull
-    private LocalDateTime fechaInicio;
+    private ModalidadPrestamo modalidad;
 
-    @NotNull
-    private LocalDateTime fechaFin;
-
-    @AssertTrue(message = "debe aceptar los terminos y responsabilidades (RN-01)")
+    /** HU-11: la aceptación del contrato de responsabilidad es obligatoria. */
+    @AssertTrue(message = "debe aceptar los terminos y responsabilidades (HU-11)")
     private Boolean aceptoTerminos;
 }
