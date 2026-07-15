@@ -10,6 +10,7 @@ import edu.upc.sistema.gestionacademicaapi.exception.RecursoNoEncontradoExceptio
 import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -167,5 +168,26 @@ public class UsuarioService {
                 .penalizadoHasta(u.getPenalizadoHasta())
                 .bloqueadoParaOperar(u.isBloqueadoParaOperar())
                 .build();
+    }
+
+    public void reactivar(Long id) {
+        var usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + id));
+        usuario.setActivo(true);
+        usuarioRepository.save(usuario);
+    }
+
+    @Transactional
+    public void eliminar(Long id) {
+        currentUserService.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        Usuario u = usuarioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", id));
+        try {
+            usuarioRepository.delete(u);
+            usuarioRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ReglaNegocioException("USUARIO_CON_REGISTROS",
+                    "No se puede eliminar: el usuario tiene registros asociados. Use desactivar en su lugar.");
+        }
     }
 }

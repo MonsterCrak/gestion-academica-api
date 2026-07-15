@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -64,6 +65,19 @@ public class UsuarioController {
     @PostMapping("/{id}/desactivar")
     public ResponseEntity<Void> desactivar(@PathVariable Long id) {
         usuarioService.desactivar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/reactivar")
+    public ResponseEntity<Void> reactivar(@PathVariable Long id) {
+        usuarioService.reactivar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Borrado físico. Si el usuario tiene registros asociados, use desactivar. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        usuarioService.eliminar(id);
         return ResponseEntity.noContent().build();
     }
 }
