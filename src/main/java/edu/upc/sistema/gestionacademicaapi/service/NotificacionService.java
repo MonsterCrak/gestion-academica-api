@@ -6,11 +6,12 @@ import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
 import edu.upc.sistema.gestionacademicaapi.enums.EstadoNotificacion;
 import edu.upc.sistema.gestionacademicaapi.repository.NotificacionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 /**
  * Persiste y envia notificaciones a los usuarios (HU-23). Registra el estado de
@@ -56,10 +57,9 @@ public class NotificacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<NotificacionResponse> misNotificaciones() {
+    public Page<NotificacionResponse> misNotificaciones(Pageable pageable) {
         Usuario yo = currentUserService.obtenerActual();
-        return repository.findByUsuario_IdOrderByFechaCreacionDesc(yo.getId())
-                .stream().map(this::toResponse).toList();
+        return repository.findByUsuario_Id(yo.getId(), pageable).map(this::toResponse);
     }
 
     private NotificacionResponse toResponse(Notificacion n) {

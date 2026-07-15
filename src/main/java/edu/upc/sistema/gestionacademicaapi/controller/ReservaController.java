@@ -6,14 +6,14 @@ import edu.upc.sistema.gestionacademicaapi.dto.ReservaResponse;
 import edu.upc.sistema.gestionacademicaapi.service.ReservaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/reservas")
@@ -28,18 +28,18 @@ public class ReservaController {
     }
 
     @GetMapping("/mias")
-    public List<ReservaResponse> misReservas() {
-        return service.misReservas();
+    public Page<ReservaResponse> misReservas(Pageable pageable) {
+        return service.misReservas(pageable);
     }
 
     @GetMapping("/bandeja")
-    public List<ReservaResponse> bandeja() {
-        return service.bandejaDocente();
+    public Page<ReservaResponse> bandeja(Pageable pageable) {
+        return service.bandejaDocente(pageable);
     }
 
     @GetMapping("/aprobadas")
-    public List<ReservaResponse> aprobadas() {
-        return service.aprobadas();
+    public Page<ReservaResponse> aprobadas(Pageable pageable) {
+        return service.aprobadas(pageable);
     }
 
     @PostMapping("/{id}/aval")

@@ -11,11 +11,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class MateriaResponse {
+public class MateriaUpdateRequest {
 
-    private Long id;
-    private String codigo;
     private String nombre;
+
     private String departamento;
-    private Boolean activo;
 }

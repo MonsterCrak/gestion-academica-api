@@ -38,6 +38,7 @@ public class AuditoriaService {
     // --- Acciones (Anexo D) ---
     public static final String LOGIN = "LOGIN";
     public static final String LOGIN_FALLIDO = "LOGIN_FALLIDO";
+    public static final String LOGOUT = "LOGOUT";
     public static final String CREA_USUARIO = "CREA_USUARIO";
     public static final String EDITA_USUARIO = "EDITA_USUARIO";
     public static final String ELIMINA_USUARIO = "ELIMINA_USUARIO";
@@ -133,8 +134,8 @@ public class AuditoriaService {
             return cb.and(predicados.toArray(new Predicate[0]));
         };
 
-        Pageable ordenado = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
-                Sort.by(Sort.Direction.DESC, "timestamp"));
+        Sort sort = pageable.getSort().isSorted() ? pageable.getSort() : Sort.by(Sort.Direction.DESC, "timestamp");
+        Pageable ordenado = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
         return repository.findAll(spec, ordenado).map(this::toResponse);
     }
 

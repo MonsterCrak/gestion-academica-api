@@ -10,10 +10,10 @@ import edu.upc.sistema.gestionacademicaapi.exception.RecursoNoEncontradoExceptio
 import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.EspacioFisicoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * Gestión de aulas y espacios físicos (parte de HU-06).
@@ -27,18 +27,18 @@ public class EspacioFisicoService {
     private final AuditoriaService auditoriaService;
 
     @Transactional(readOnly = true)
-    public List<EspacioFisicoResponse> listar() {
-        return repository.findAll().stream().map(this::toResponse).toList();
+    public Page<EspacioFisicoResponse> listar(Pageable pageable) {
+        return repository.findAll(pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<EspacioFisicoResponse> listarPorTipo(TipoEspacio tipo) {
-        return repository.findByTipoEspacio(tipo).stream().map(this::toResponse).toList();
+    public Page<EspacioFisicoResponse> listarPorTipo(TipoEspacio tipo, Pageable pageable) {
+        return repository.findByTipoEspacio(tipo, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<EspacioFisicoResponse> listarReservables() {
-        return repository.findByPermitirReservaCompletaTrue().stream().map(this::toResponse).toList();
+    public Page<EspacioFisicoResponse> listarReservables(Pageable pageable) {
+        return repository.findByPermitirReservaCompletaTrue(pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

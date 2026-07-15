@@ -1,6 +1,8 @@
 package edu.upc.sistema.gestionacademicaapi.repository;
 
 import edu.upc.sistema.gestionacademicaapi.entity.Penalizacion;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,7 +12,7 @@ import java.util.List;
 @Repository
 public interface PenalizacionRepository extends JpaRepository<Penalizacion, Long> {
 
-    List<Penalizacion> findByUsuario_IdOrderByFechaInicioDesc(Long usuarioId);
+    Page<Penalizacion> findByUsuario_Id(Long usuarioId, Pageable pageable);
 
     List<Penalizacion> findByUsuario_IdAndActivaTrue(Long usuarioId);
 

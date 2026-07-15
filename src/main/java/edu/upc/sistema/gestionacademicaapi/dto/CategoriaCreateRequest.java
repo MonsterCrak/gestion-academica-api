@@ -26,4 +26,10 @@ public class CategoriaCreateRequest {
     @NotNull
     @Min(value = 1)
     private Integer tiempoMaximoHoras;
+
+    /** Si se omite, se asume false (no permite extension). */
+    private Boolean permiteExtension;
+
+    @Min(value = 1)
+    private Integer horasExtension;
 }

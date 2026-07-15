@@ -8,14 +8,14 @@ import edu.upc.sistema.gestionacademicaapi.dto.SesionTutoriaResponse;
 import edu.upc.sistema.gestionacademicaapi.service.TutoriaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/tutorias")
@@ -26,8 +26,8 @@ public class TutoriaController {
 
     /** HU-16: tablero de demanda por asignatura con el progreso del quórum. */
     @GetMapping("/demanda")
-    public List<DemandaMateriaResponse> demanda() {
-        return service.listarDemanda();
+    public Page<DemandaMateriaResponse> demanda(Pageable pageable) {
+        return service.listarDemanda(pageable);
     }
 
     @PostMapping("/inscribir")
@@ -36,13 +36,13 @@ public class TutoriaController {
     }
 
     @GetMapping("/mis-inscripciones")
-    public List<InscripcionTutoriaResponse> misInscripciones() {
-        return service.misInscripciones();
+    public Page<InscripcionTutoriaResponse> misInscripciones(Pageable pageable) {
+        return service.misInscripciones(pageable);
     }
 
     @GetMapping("/sesiones")
-    public List<SesionTutoriaResponse> sesiones() {
-        return service.listarSesiones();
+    public Page<SesionTutoriaResponse> sesiones(Pageable pageable) {
+        return service.listarSesiones(pageable);
     }
 
     @PostMapping("/sesiones/{id}/asignar")

@@ -1,5 +1,6 @@
 package edu.upc.sistema.gestionacademicaapi.dto;
 
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -11,13 +12,18 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CategoriaResponse {
+public class CategoriaUpdateRequest {
 
-    private Long id;
     private String nombreCategoria;
+
+    @Min(value = 1)
     private Integer maxItemsPorAlumno;
+
+    @Min(value = 1)
     private Integer tiempoMaximoHoras;
+
     private Boolean permiteExtension;
+
+    @Min(value = 1)
     private Integer horasExtension;
-    private Boolean activo;
 }

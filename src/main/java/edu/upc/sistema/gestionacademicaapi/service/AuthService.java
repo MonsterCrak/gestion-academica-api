@@ -7,11 +7,15 @@ import edu.upc.sistema.gestionacademicaapi.dto.ResetPasswordRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.TokenResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.UsuarioResponse;
 import edu.upc.sistema.gestionacademicaapi.entity.PasswordResetToken;
+import edu.upc.sistema.gestionacademicaapi.entity.TokenRevocado;
 import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
 import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.PasswordResetTokenRepository;
+import edu.upc.sistema.gestionacademicaapi.repository.TokenRevocadoRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import edu.upc.sistema.gestionacademicaapi.security.JwtService;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +39,7 @@ public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordResetTokenRepository tokenRepository;
+    private final TokenRevocadoRepository tokenRevocadoRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final CurrentUserService currentUserService;
@@ -113,6 +119,37 @@ public class AuthService {
                 .penalizadoHasta(u.getPenalizadoHasta())
                 .bloqueadoParaOperar(u.isBloqueadoParaOperar())
                 .build();
+    }
+
+    /**
+     * Cierra la sesion revocando el jti del access token actual. El token es stateless
+     * y sigue siendo criptograficamente valido hasta su expiracion natural, pero
+     * JwtAuthenticationFilter lo rechaza en cuanto queda registrado como revocado.
+     */
+    @Transactional
+    public void logout(String authHeader) {
+        Usuario yo = currentUserService.obtenerActual();
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring("Bearer ".length()).trim();
+            try {
+                Claims claims = jwtService.parseClaims(token);
+                if (claims.getId() != null && claims.getExpiration() != null) {
+                    LocalDateTime expiracion = claims.getExpiration().toInstant()
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDateTime();
+                    tokenRevocadoRepository.save(TokenRevocado.builder()
+                            .jti(claims.getId())
+                            .fechaExpiracion(expiracion)
+                            .build());
+                }
+            } catch (JwtException ex) {
+                log.debug("Token invalido en logout, nada que revocar: {}", ex.getMessage());
+            }
+        }
+
+        auditoriaService.registrar(AuditoriaService.LOGOUT, "Usuario",
+                String.valueOf(yo.getId()), AuditoriaService.OK, "Cierre de sesion");
     }
 
     /** HU-04: cambio de contrasena del propio usuario autenticado. */

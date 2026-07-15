@@ -9,6 +9,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -19,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/usuarios")
@@ -41,8 +42,9 @@ public class UsuarioController {
 
     /** Docentes activos (para elegir avalista de reservas). Cualquier usuario autenticado. */
     @GetMapping("/docentes")
-    public List<UsuarioResponse> docentes() {
-        return usuarioService.listarPorTipo(TipoUsuario.DOCENTE);
+    public Page<UsuarioResponse> docentes(
+            @PageableDefault(size = 20, sort = "apellidos", direction = Sort.Direction.ASC) Pageable pageable) {
+        return usuarioService.listarPorTipo(TipoUsuario.DOCENTE, pageable);
     }
 
     @GetMapping("/{id}")

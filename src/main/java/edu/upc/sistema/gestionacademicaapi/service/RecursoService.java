@@ -52,7 +52,8 @@ public class RecursoService {
     /** HU-08: búsqueda y filtrado avanzado con paginación. */
     @Transactional(readOnly = true)
     public Page<RecursoResponse> buscar(String q, EstadoRecurso estado, Long categoriaId,
-                                        Long espacioId, TipoMovilidad tipoMovilidad, Pageable pageable) {
+                                        Long espacioId, TipoMovilidad tipoMovilidad, String nombreLike,
+                                        Pageable pageable) {
         Specification<Recurso> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             if (q != null && !q.isBlank()) {
@@ -66,6 +67,9 @@ public class RecursoService {
             if (categoriaId != null) ps.add(cb.equal(root.get("categoria").get("id"), categoriaId));
             if (espacioId != null) ps.add(cb.equal(root.get("espacioActual").get("id"), espacioId));
             if (tipoMovilidad != null) ps.add(cb.equal(root.get("tipoMovilidad"), tipoMovilidad));
+            if (nombreLike != null && !nombreLike.isBlank()) {
+                ps.add(cb.like(cb.lower(root.get("nombre")), "%" + nombreLike.toLowerCase() + "%"));
+            }
             return cb.and(ps.toArray(new Predicate[0]));
         };
         return repository.findAll(spec, pageable).map(this::toResponse);

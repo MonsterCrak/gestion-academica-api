@@ -1,6 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.security;
 
 import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
+import edu.upc.sistema.gestionacademicaapi.repository.TokenRevocadoRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -32,6 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+    private final TokenRevocadoRepository tokenRevocadoRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -51,6 +53,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (identificador == null) {
                 log.debug("Token sin subject");
+                chain.doFilter(request, response);
+                return;
+            }
+
+            if (claims.getId() != null && tokenRevocadoRepository.existsByJti(claims.getId())) {
+                log.debug("Token revocado (logout): {}", identificador);
+                SecurityContextHolder.clearContext();
                 chain.doFilter(request, response);
                 return;
             }

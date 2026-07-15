@@ -18,7 +18,11 @@ import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.BloqueHorarioRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.PrestamoIndividualRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.RecursoRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +30,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -126,8 +131,7 @@ public class PrestamoIndividualService {
     @Transactional
     public PrestamoResponse devolver(Long prestamoId, DevolucionRequest req) {
         Usuario yo = currentUser.obtenerActual();
-        PrestamoIndividual pi = repository.findById(prestamoId)
-                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Prestamo no encontrado"));
+        PrestamoIndividual pi = buscarPorId(prestamoId);
 
         boolean esAdmin = yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO;
         if (!esAdmin && !pi.getUsuarioSolicitante().getId().equals(yo.getId())) {
@@ -166,17 +170,80 @@ public class PrestamoIndividualService {
     }
 
     @Transactional(readOnly = true)
-    public List<PrestamoResponse> listarMios() {
+    public Page<PrestamoResponse> listarMios(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        return repository.findByUsuarioSolicitante_IdOrderByFechaInicioDesc(yo.getId())
-                .stream().map(this::toResponse).toList();
+        return repository.findByUsuarioSolicitante_Id(yo.getId(), pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<PrestamoResponse> listarActivos() {
+    public Page<PrestamoResponse> listarActivos(Pageable pageable) {
         currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
-        return repository.findByEstadoOrderByFechaFinAsc(EstadoPrestamo.ACTIVO)
-                .stream().map(this::toResponse).toList();
+        return repository.findByEstado(EstadoPrestamo.ACTIVO, pageable).map(this::toResponse);
+    }
+
+    /** Detalle de un prestamo: el dueno o un administrativo pueden verlo. */
+    @Transactional(readOnly = true)
+    public PrestamoResponse obtener(Long id) {
+        Usuario yo = currentUser.obtenerActual();
+        PrestamoIndividual pi = buscarPorId(id);
+        boolean esAdmin = yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO;
+        if (!esAdmin && !pi.getUsuarioSolicitante().getId().equals(yo.getId())) {
+            throw new ReglaNegocioException("ACCESO_DENEGADO", "No es dueno del prestamo");
+        }
+        return toResponse(pi);
+    }
+
+    /** Listado paginado con filtros para administrativos (vista global de prestamos). */
+    @Transactional(readOnly = true)
+    public Page<PrestamoResponse> buscar(EstadoPrestamo estado, Long usuarioSolicitanteId, Long recursoId,
+                                         ModalidadPrestamo modalidad, LocalDate fechaDesde, LocalDate fechaHasta,
+                                         Pageable pageable) {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        Specification<PrestamoIndividual> spec = (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (estado != null) ps.add(cb.equal(root.get("estado"), estado));
+            if (usuarioSolicitanteId != null) ps.add(cb.equal(root.get("usuarioSolicitante").get("id"), usuarioSolicitanteId));
+            if (recursoId != null) ps.add(cb.equal(root.get("recurso").get("id"), recursoId));
+            if (modalidad != null) ps.add(cb.equal(root.get("modalidad"), modalidad));
+            if (fechaDesde != null) ps.add(cb.greaterThanOrEqualTo(root.get("fechaInicio"), fechaDesde.atStartOfDay()));
+            if (fechaHasta != null) ps.add(cb.lessThan(root.get("fechaInicio"), fechaHasta.plusDays(1).atStartOfDay()));
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
+        return repository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    /** El estudiante extiende fechaFin de su propio prestamo activo, si la categoria del recurso lo permite. */
+    @Transactional
+    public PrestamoResponse extender(Long prestamoId) {
+        Usuario yo = currentUser.obtenerActual();
+        PrestamoIndividual pi = buscarPorId(prestamoId);
+        if (!pi.getUsuarioSolicitante().getId().equals(yo.getId())) {
+            throw new ReglaNegocioException("ACCESO_DENEGADO", "No es dueno del prestamo");
+        }
+        if (pi.getEstado() != EstadoPrestamo.ACTIVO) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "Solo se puede extender un prestamo activo");
+        }
+        if (LocalDateTime.now().isAfter(pi.getFechaFin())) {
+            throw new ReglaNegocioException("PRESTAMO_VENCIDO", "No se puede extender un prestamo ya vencido");
+        }
+        CategoriaPolitica categoria = pi.getRecurso().getCategoria();
+        if (categoria == null || !Boolean.TRUE.equals(categoria.getPermiteExtension())) {
+            throw new ReglaNegocioException("EXTENSION_NO_PERMITIDA",
+                    "La categoria del recurso no permite extender el prestamo");
+        }
+        int horas = categoria.getHorasExtension() != null
+                ? categoria.getHorasExtension() : categoria.getTiempoMaximoHoras();
+        pi.setFechaFin(pi.getFechaFin().plusHours(horas));
+
+        PrestamoIndividual saved = repository.save(pi);
+        auditoriaService.registrar("EXTIENDE_PRESTAMO", "Prestamo", String.valueOf(saved.getId()),
+                AuditoriaService.OK, "Extension de " + horas + " hora(s), nueva fechaFin=" + saved.getFechaFin());
+        return toResponse(saved);
+    }
+
+    private PrestamoIndividual buscarPorId(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Prestamo no encontrado"));
     }
 
     private void validarHorarioInstitucional(Recurso recurso) {
