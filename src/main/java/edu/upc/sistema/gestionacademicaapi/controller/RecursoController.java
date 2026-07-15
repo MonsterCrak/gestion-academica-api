@@ -10,8 +10,9 @@ import edu.upc.sistema.gestionacademicaapi.service.RecursoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,7 +30,7 @@ public class RecursoController {
 
     private final RecursoService service;
 
-    /** HU-07/08: catálogo con búsqueda, filtros y paginación. */
+    /** HU-07/08: catálogo con búsqueda, filtros y paginación. nombreLike filtra solo por nombre (distinto de q, que busca en varios campos). */
     @GetMapping
     public Page<RecursoResponse> buscar(
             @RequestParam(required = false) String q,
@@ -37,10 +38,9 @@ public class RecursoController {
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(required = false) Long espacioActualId,
             @RequestParam(required = false) TipoMovilidad tipoMovilidad,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "12") int size) {
-        return service.buscar(q, estado, categoriaId, espacioActualId, tipoMovilidad,
-                PageRequest.of(page, size, Sort.by("nombre")));
+            @RequestParam(required = false) String nombreLike,
+            @PageableDefault(size = 12, sort = "nombre", direction = Sort.Direction.ASC) Pageable pageable) {
+        return service.buscar(q, estado, categoriaId, espacioActualId, tipoMovilidad, nombreLike, pageable);
     }
 
     @GetMapping("/disponibilidad")

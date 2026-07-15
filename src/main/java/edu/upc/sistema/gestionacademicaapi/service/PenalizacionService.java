@@ -15,6 +15,8 @@ import edu.upc.sistema.gestionacademicaapi.repository.PenalizacionRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -118,20 +120,18 @@ public class PenalizacionService {
     }
 
     @Transactional(readOnly = true)
-    public List<PenalizacionResponse> misPenalizaciones() {
+    public Page<PenalizacionResponse> misPenalizaciones(Pageable pageable) {
         Usuario yo = currentUserService.obtenerActual();
-        return repository.findByUsuario_IdOrderByFechaInicioDesc(yo.getId())
-                .stream().map(this::toResponse).toList();
+        return repository.findByUsuario_Id(yo.getId(), pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<PenalizacionResponse> listarDeUsuario(Long usuarioId) {
+    public Page<PenalizacionResponse> listarDeUsuario(Long usuarioId, Pageable pageable) {
         Usuario yo = currentUserService.obtenerActual();
         if (yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO && !yo.getId().equals(usuarioId)) {
             throw new AccesoNoAutorizadoException("Solo puede ver sus propias penalizaciones");
         }
-        return repository.findByUsuario_IdOrderByFechaInicioDesc(usuarioId)
-                .stream().map(this::toResponse).toList();
+        return repository.findByUsuario_Id(usuarioId, pageable).map(this::toResponse);
     }
 
     // --- internos ---

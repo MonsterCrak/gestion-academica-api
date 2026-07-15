@@ -15,6 +15,8 @@ import edu.upc.sistema.gestionacademicaapi.repository.EspacioFisicoRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.ReservaRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -151,26 +153,24 @@ public class ReservaService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReservaResponse> misReservas() {
+    public Page<ReservaResponse> misReservas(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        return repository.findBySolicitante_IdOrderByFechaInicioDesc(yo.getId())
-                .stream().map(this::toResponse).toList();
+        return repository.findBySolicitante_Id(yo.getId(), pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<ReservaResponse> bandejaDocente() {
+    public Page<ReservaResponse> bandejaDocente(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
         if (yo.getTipoUsuario() != TipoUsuario.DOCENTE && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
             throw new AccesoNoAutorizadoException("Solo docentes pueden ver la bandeja de avales");
         }
-        return repository.findByDocenteAvalista_IdAndEstadoOrderByFechaInicioAsc(yo.getId(), EstadoReserva.PENDIENTE_AVAL)
-                .stream().map(this::toResponse).toList();
+        return repository.findByDocenteAvalista_IdAndEstado(yo.getId(), EstadoReserva.PENDIENTE_AVAL, pageable)
+                .map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<ReservaResponse> aprobadas() {
-        return repository.findByEstadoOrderByFechaInicioAsc(EstadoReserva.APROBADA)
-                .stream().map(this::toResponse).toList();
+    public Page<ReservaResponse> aprobadas(Pageable pageable) {
+        return repository.findByEstado(EstadoReserva.APROBADA, pageable).map(this::toResponse);
     }
 
     // --- internos ---

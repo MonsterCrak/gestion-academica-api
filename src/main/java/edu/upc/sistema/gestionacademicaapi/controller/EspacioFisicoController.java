@@ -7,6 +7,8 @@ import edu.upc.sistema.gestionacademicaapi.enums.TipoEspacio;
 import edu.upc.sistema.gestionacademicaapi.service.EspacioFisicoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,8 +19,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/espacios")
 @RequiredArgsConstructor
@@ -27,13 +27,13 @@ public class EspacioFisicoController {
     private final EspacioFisicoService service;
 
     @GetMapping
-    public List<EspacioFisicoResponse> listar(@RequestParam(required = false) TipoEspacio tipo) {
-        return tipo == null ? service.listar() : service.listarPorTipo(tipo);
+    public Page<EspacioFisicoResponse> listar(@RequestParam(required = false) TipoEspacio tipo, Pageable pageable) {
+        return tipo == null ? service.listar(pageable) : service.listarPorTipo(tipo, pageable);
     }
 
     @GetMapping("/reservables")
-    public List<EspacioFisicoResponse> listarReservables() {
-        return service.listarReservables();
+    public Page<EspacioFisicoResponse> listarReservables(Pageable pageable) {
+        return service.listarReservables(pageable);
     }
 
     @GetMapping("/{id}")

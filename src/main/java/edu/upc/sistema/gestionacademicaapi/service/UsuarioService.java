@@ -16,8 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class UsuarioService {
@@ -63,10 +61,9 @@ public class UsuarioService {
 
     /** Lista usuarios activos de un tipo (p. ej. docentes avalistas). Accesible a cualquier autenticado. */
     @Transactional(readOnly = true)
-    public List<UsuarioResponse> listarPorTipo(TipoUsuario tipo) {
+    public Page<UsuarioResponse> listarPorTipo(TipoUsuario tipo, Pageable pageable) {
         currentUserService.obtenerActual();
-        return usuarioRepository.findByTipoUsuarioAndActivoTrueOrderByApellidosAsc(tipo)
-                .stream().map(this::toResponse).toList();
+        return usuarioRepository.findByTipoUsuarioAndActivoTrue(tipo, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)

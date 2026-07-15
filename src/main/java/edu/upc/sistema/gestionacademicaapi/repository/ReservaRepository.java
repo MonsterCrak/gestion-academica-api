@@ -2,20 +2,21 @@ package edu.upc.sistema.gestionacademicaapi.repository;
 
 import edu.upc.sistema.gestionacademicaapi.entity.Reserva;
 import edu.upc.sistema.gestionacademicaapi.enums.EstadoReserva;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Repository
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
-    List<Reserva> findBySolicitante_IdOrderByFechaInicioDesc(Long solicitanteId);
+    Page<Reserva> findBySolicitante_Id(Long solicitanteId, Pageable pageable);
 
-    List<Reserva> findByDocenteAvalista_IdAndEstadoOrderByFechaInicioAsc(Long docenteId, EstadoReserva estado);
+    Page<Reserva> findByDocenteAvalista_IdAndEstado(Long docenteId, EstadoReserva estado, Pageable pageable);
 
-    List<Reserva> findByEstadoOrderByFechaInicioAsc(EstadoReserva estado);
+    Page<Reserva> findByEstado(EstadoReserva estado, Pageable pageable);
 
     /** Choque de horario: existe una reserva del aula en el estado dado que se solapa con [inicio, fin). */
     boolean existsByEspacioFisico_IdAndEstadoAndFechaInicioLessThanAndFechaFinGreaterThan(

@@ -23,6 +23,9 @@ import edu.upc.sistema.gestionacademicaapi.repository.SesionTutoriaRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -181,33 +184,36 @@ public class TutoriaService {
     }
 
     @Transactional(readOnly = true)
-    public List<DemandaMateriaResponse> listarDemanda() {
+    public Page<DemandaMateriaResponse> listarDemanda(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        return materiaRepository.findAll().stream()
-                .map(m -> demandaMateria(m, yo.getId()))
-                .toList();
+        return materiaRepository.findAll(pageable).map(m -> demandaMateria(m, yo.getId()));
     }
 
     @Transactional(readOnly = true)
-    public List<InscripcionTutoriaResponse> misInscripciones() {
+    public Page<InscripcionTutoriaResponse> misInscripciones(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        return demandaRepository.findByAlumno_IdOrderByFechaInscripcionDesc(yo.getId())
-                .stream().map(this::inscripcionResponse).toList();
+        return demandaRepository.findByAlumno_Id(yo.getId(), pageable).map(this::inscripcionResponse);
     }
 
+    /**
+     * ADMINISTRATIVO y DOCENTE paginan a nivel de BD. ESTUDIANTE deriva sesiones distintas a partir de
+     * sus inscripciones (no es una consulta directa de SesionTutoria), por lo que se pagina en memoria.
+     */
     @Transactional(readOnly = true)
-    public List<SesionTutoriaResponse> listarSesiones() {
+    public Page<SesionTutoriaResponse> listarSesiones(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        List<SesionTutoria> sesiones;
         if (yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO) {
-            sesiones = sesionRepository.findAllByOrderByFechaCreacionDesc();
-        } else if (yo.getTipoUsuario() == TipoUsuario.DOCENTE) {
-            sesiones = sesionRepository.findByDocente_IdOrderByFechaHoraInicioAsc(yo.getId());
-        } else {
-            sesiones = demandaRepository.findByAlumno_IdOrderByFechaInscripcionDesc(yo.getId()).stream()
-                    .map(DemandaTutoria::getSesion).filter(Objects::nonNull).distinct().toList();
+            return sesionRepository.findAll(pageable).map(this::sesionResponse);
         }
-        return sesiones.stream().map(this::sesionResponse).toList();
+        if (yo.getTipoUsuario() == TipoUsuario.DOCENTE) {
+            return sesionRepository.findByDocente_Id(yo.getId(), pageable).map(this::sesionResponse);
+        }
+        List<SesionTutoriaResponse> todas = demandaRepository.findByAlumno_IdOrderByFechaInscripcionDesc(yo.getId())
+                .stream().map(DemandaTutoria::getSesion).filter(Objects::nonNull).distinct()
+                .map(this::sesionResponse).toList();
+        int desde = Math.min((int) pageable.getOffset(), todas.size());
+        int hasta = Math.min(desde + pageable.getPageSize(), todas.size());
+        return new PageImpl<>(todas.subList(desde, hasta), pageable, todas.size());
     }
 
     // --- internos ---

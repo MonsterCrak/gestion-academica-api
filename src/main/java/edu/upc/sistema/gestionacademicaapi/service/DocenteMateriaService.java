@@ -8,11 +8,12 @@ import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
 import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.DocenteMateriaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -23,14 +24,14 @@ public class DocenteMateriaService {
     private final MateriaService materiaService;
 
     @Transactional(readOnly = true)
-    public List<DocenteMateriaResponse> listarPorDocente(Long docenteId) {
-        return repository.findByDocente_IdAndActivoTrue(docenteId).stream().map(this::toResponse).toList();
+    public Page<DocenteMateriaResponse> listarPorDocente(Long docenteId, Pageable pageable) {
+        return repository.findByDocente_IdAndActivoTrue(docenteId, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<DocenteMateriaResponse> listarMias() {
+    public Page<DocenteMateriaResponse> listarMias(Pageable pageable) {
         Usuario yo = currentUser.obtenerActual();
-        return listarPorDocente(yo.getId());
+        return listarPorDocente(yo.getId(), pageable);
     }
 
     @Transactional
@@ -61,14 +62,30 @@ public class DocenteMateriaService {
     @Transactional
     public void desactivar(Long id) {
         Usuario yo = currentUser.obtenerActual();
-        DocenteMateria dm = repository.findById(id)
-                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Preferencia no encontrada"));
+        DocenteMateria dm = buscarPorId(id);
         if (!dm.getDocente().getId().equals(yo.getId())
                 && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
             throw new ReglaNegocioException("ACCESO_DENEGADO", "No es dueno de esta preferencia");
         }
         dm.setActivo(false);
         repository.save(dm);
+    }
+
+    /** Detalle: el docente dueno de la preferencia o un administrativo. */
+    @Transactional(readOnly = true)
+    public DocenteMateriaResponse obtener(Long id) {
+        Usuario yo = currentUser.obtenerActual();
+        DocenteMateria dm = buscarPorId(id);
+        if (!dm.getDocente().getId().equals(yo.getId())
+                && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
+            throw new ReglaNegocioException("ACCESO_DENEGADO", "No es dueno de esta preferencia");
+        }
+        return toResponse(dm);
+    }
+
+    private DocenteMateria buscarPorId(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Preferencia no encontrada"));
     }
 
     private DocenteMateriaResponse toResponse(DocenteMateria d) {

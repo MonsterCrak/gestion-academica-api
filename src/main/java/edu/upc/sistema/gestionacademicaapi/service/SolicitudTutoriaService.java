@@ -6,6 +6,7 @@ import edu.upc.sistema.gestionacademicaapi.dto.ConfirmacionAlumnoResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.ConfirmarAsistenciaRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.ResolverRevisionRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.SolicitudTutoriaCreateRequest;
+import edu.upc.sistema.gestionacademicaapi.dto.SolicitudTutoriaDetalleResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.SolicitudTutoriaResponse;
 import edu.upc.sistema.gestionacademicaapi.entity.ConfirmacionTutoriaAlumno;
 import edu.upc.sistema.gestionacademicaapi.entity.DocenteMateria;
@@ -30,15 +31,21 @@ import edu.upc.sistema.gestionacademicaapi.repository.EspacioFisicoRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.MateriaRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.RegistroHorasTutoriaRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.SolicitudTutoriaRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -100,11 +107,47 @@ public class SolicitudTutoriaService {
         return toResponse(buscarPorId(id));
     }
 
+    /** GET /{id} enriquecido: evita la segunda llamada a /confirmaciones. */
     @Transactional(readOnly = true)
-    public List<ConfirmacionAlumnoResponse> listarConfirmaciones(Long solicitudId) {
-        buscarPorId(solicitudId);
-        return confirmacionRepository.findBySolicitud_Id(solicitudId).stream()
+    public SolicitudTutoriaDetalleResponse obtenerDetalle(Long id) {
+        SolicitudTutoria s = buscarPorId(id);
+        List<ConfirmacionAlumnoResponse> confirmados = confirmacionRepository.findBySolicitud_Id(id).stream()
                 .map(this::toConfirmacionResponse).toList();
+        return toDetalleResponse(s, confirmados);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SolicitudTutoriaResponse> misSolicitudes(Pageable pageable) {
+        Usuario yo = currentUser.obtenerActual();
+        return solicitudRepository.findByCreador_Id(yo.getId(), pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SolicitudTutoriaResponse> asignadasAMi(Pageable pageable) {
+        Usuario yo = currentUser.obtenerActual();
+        return solicitudRepository.findByDocenteAsignado_Id(yo.getId(), pageable).map(this::toResponse);
+    }
+
+    /** El creador (estudiante) puede cancelar solo mientras la solicitud sigue pendiente de quorum. */
+    @Transactional
+    public SolicitudTutoriaResponse cancelar(Long solicitudId) {
+        Usuario yo = currentUser.obtenerActual();
+        SolicitudTutoria s = buscarPorId(solicitudId);
+        if (!s.getCreador().getId().equals(yo.getId())) {
+            throw new AccesoNoAutorizadoException("Solo el creador de la solicitud puede cancelarla");
+        }
+        if (s.getEstado() != EstadoSolicitud.PENDIENTE_QUORUM) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO",
+                    "Solo se puede cancelar mientras esta pendiente de quorum (estado actual=" + s.getEstado() + ")");
+        }
+        s.setEstado(EstadoSolicitud.CANCELADA);
+        return toResponse(solicitudRepository.save(s));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ConfirmacionAlumnoResponse> listarConfirmaciones(Long solicitudId, Pageable pageable) {
+        buscarPorId(solicitudId);
+        return confirmacionRepository.findBySolicitud_Id(solicitudId, pageable).map(this::toConfirmacionResponse);
     }
 
     @Transactional
@@ -302,9 +345,22 @@ public class SolicitudTutoriaService {
         return toResponse(solicitudRepository.save(s));
     }
 
+    /** Busqueda avanzada: filtra por estado, materia, docente asignado, rango de fechaHoraInicio y creador. */
     @Transactional(readOnly = true)
-    public List<SolicitudTutoriaResponse> listar() {
-        return solicitudRepository.findAll().stream().map(this::toResponse).toList();
+    public Page<SolicitudTutoriaResponse> listar(EstadoSolicitud estado, Long materiaId, Long docenteId,
+                                                 LocalDate fechaDesde, LocalDate fechaHasta, Long creadorId,
+                                                 Pageable pageable) {
+        Specification<SolicitudTutoria> spec = (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            if (estado != null) ps.add(cb.equal(root.get("estado"), estado));
+            if (materiaId != null) ps.add(cb.equal(root.get("materia").get("id"), materiaId));
+            if (docenteId != null) ps.add(cb.equal(root.get("docenteAsignado").get("id"), docenteId));
+            if (creadorId != null) ps.add(cb.equal(root.get("creador").get("id"), creadorId));
+            if (fechaDesde != null) ps.add(cb.greaterThanOrEqualTo(root.get("fechaHoraInicio"), fechaDesde.atStartOfDay()));
+            if (fechaHasta != null) ps.add(cb.lessThan(root.get("fechaHoraInicio"), fechaHasta.plusDays(1).atStartOfDay()));
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
+        return solicitudRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     void reevaluarQuorum(SolicitudTutoria s) {
@@ -406,6 +462,27 @@ public class SolicitudTutoriaService {
                 .docenteConfirmoRealizacion(s.getDocenteConfirmoRealizacion())
                 .docenteConfirmoRealizacionEn(s.getDocenteConfirmoRealizacionEn())
                 .totalConfirmados(s.getTotalConfirmados())
+                .build();
+    }
+
+    private SolicitudTutoriaDetalleResponse toDetalleResponse(SolicitudTutoria s, List<ConfirmacionAlumnoResponse> confirmados) {
+        return SolicitudTutoriaDetalleResponse.builder()
+                .id(s.getId())
+                .creadorId(s.getCreador() != null ? s.getCreador().getId() : null)
+                .materiaId(s.getMateria() != null ? s.getMateria().getId() : null)
+                .espacioAsignadoId(s.getEspacioAsignado() != null ? s.getEspacioAsignado().getId() : null)
+                .docenteAsignadoId(s.getDocenteAsignado() != null ? s.getDocenteAsignado().getId() : null)
+                .tipoAulaSolicitada(s.getTipoAulaSolicitada())
+                .fechaHoraInicio(s.getFechaHoraInicio())
+                .fechaHoraFin(s.getFechaHoraFin())
+                .duracionHoras(s.getDuracionHoras())
+                .tokenInvitacion(s.getTokenInvitacion())
+                .fechaExpiracionToken(s.getFechaExpiracionToken())
+                .estado(s.getEstado())
+                .docenteConfirmoRealizacion(s.getDocenteConfirmoRealizacion())
+                .docenteConfirmoRealizacionEn(s.getDocenteConfirmoRealizacionEn())
+                .totalConfirmados(s.getTotalConfirmados())
+                .confirmados(confirmados)
                 .build();
     }
 

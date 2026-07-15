@@ -10,11 +10,16 @@ import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.BloqueHorarioRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.EspacioFisicoRepository;
 import edu.upc.sistema.gestionacademicaapi.repository.RecursoRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,9 +31,24 @@ public class BloqueHorarioService {
     private final RecursoRepository recursoRepository;
     private final CurrentUserService currentUser;
 
+    /** Filtro por aula (espacioFisicoId) y/o recurso (recursoId), solo bloqueos activos. Uso administrativo. */
     @Transactional(readOnly = true)
-    public List<BloqueHorarioResponse> listar() {
-        return repository.findByActivoTrue().stream().map(this::toResponse).toList();
+    public Page<BloqueHorarioResponse> buscar(Long espacioFisicoId, Long recursoId, Pageable pageable) {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        Specification<BloqueHorario> spec = (root, query, cb) -> {
+            List<Predicate> ps = new ArrayList<>();
+            ps.add(cb.isTrue(root.get("activo")));
+            if (espacioFisicoId != null) ps.add(cb.equal(root.get("espacioFisico").get("id"), espacioFisicoId));
+            if (recursoId != null) ps.add(cb.equal(root.get("recurso").get("id"), recursoId));
+            return cb.and(ps.toArray(new Predicate[0]));
+        };
+        return repository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public BloqueHorarioResponse obtener(Long id) {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        return toResponse(buscarPorId(id));
     }
 
     @Transactional
@@ -71,10 +91,14 @@ public class BloqueHorarioService {
     @Transactional
     public void desactivar(Long id) {
         currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
-        BloqueHorario b = repository.findById(id)
-                .orElseThrow(() -> new RecursoNoEncontradoException("BloqueHorario", id));
+        BloqueHorario b = buscarPorId(id);
         b.setActivo(false);
         repository.save(b);
+    }
+
+    private BloqueHorario buscarPorId(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("BloqueHorario", id));
     }
 
     public boolean solapa(BloqueHorario bloque, java.time.LocalDate fecha, LocalTime horaInicio, LocalTime horaFin) {
