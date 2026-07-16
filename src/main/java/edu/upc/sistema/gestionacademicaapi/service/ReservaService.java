@@ -140,14 +140,35 @@ public class ReservaService {
         Usuario yo = currentUser.obtenerActual();
         Reserva r = repository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Reserva", id));
-        if (!r.getSolicitante().getId().equals(yo.getId()) && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
-            throw new AccesoNoAutorizadoException("Solo el solicitante puede cancelar la reserva");
+
+        boolean esAdmin = yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO;
+        boolean esSolicitante = r.getSolicitante().getId().equals(yo.getId());
+        boolean esAvalista = r.getDocenteAvalista() != null && r.getDocenteAvalista().getId().equals(yo.getId());
+        if (!esAdmin && !esSolicitante && !esAvalista) {
+            throw new AccesoNoAutorizadoException("Solo el solicitante, el docente avalista o un administrador pueden cancelar");
         }
         if (r.getEstado() == EstadoReserva.RECHAZADA || r.getEstado() == EstadoReserva.CANCELADA) {
             throw new ReglaNegocioException("ESTADO_INVALIDO", "La reserva ya esta finalizada");
         }
+        // El docente avalista (que no es el solicitante) solo puede cancelar antes del inicio de la reserva.
+        if (esAvalista && !esSolicitante && !esAdmin && !r.getFechaInicio().isAfter(LocalDateTime.now())) {
+            throw new ReglaNegocioException("YA_INICIADA",
+                    "No se puede cancelar una reserva que ya inicio");
+        }
+
         r.setEstado(EstadoReserva.CANCELADA);
-        return toResponse(repository.save(r));
+        Reserva saved = repository.save(r);
+
+        // Notifica al solicitante si la cancela el docente avalista o un administrador.
+        if (!esSolicitante) {
+            notificacionService.notificar(r.getSolicitante(), NotificacionService.RESERVA_RESUELTA,
+                    "Tu reserva fue cancelada",
+                    "La reserva de " + r.getEspacioFisico().getCodigo() + " fue cancelada por "
+                            + (esAdmin ? "la administracion." : "el docente avalista."));
+        }
+        auditoriaService.registrar(AuditoriaService.RECHAZA_RESERVA, "Reserva", String.valueOf(id),
+                AuditoriaService.OK, "Reserva cancelada");
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -170,6 +191,17 @@ public class ReservaService {
     @Transactional(readOnly = true)
     public List<ReservaResponse> aprobadas() {
         return repository.findByEstadoOrderByFechaInicioAsc(EstadoReserva.APROBADA)
+                .stream().map(this::toResponse).toList();
+    }
+
+    /** HU-14: reservas que el docente autenticado avaló (aprobó) y siguen vigentes. */
+    @Transactional(readOnly = true)
+    public List<ReservaResponse> misAvaladas() {
+        Usuario yo = currentUser.obtenerActual();
+        if (yo.getTipoUsuario() != TipoUsuario.DOCENTE && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
+            throw new AccesoNoAutorizadoException("Solo docentes pueden ver sus reservas avaladas");
+        }
+        return repository.findByDocenteAvalista_IdAndEstadoOrderByFechaInicioAsc(yo.getId(), EstadoReserva.APROBADA)
                 .stream().map(this::toResponse).toList();
     }
 

@@ -1,5 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.entity;
 
+import edu.upc.sistema.gestionacademicaapi.enums.ModoResolucion;
+import edu.upc.sistema.gestionacademicaapi.enums.OrigenPenalizacion;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoPenalizacion;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,8 +47,28 @@ public class Penalizacion {
     @Column(name = "tipo", nullable = false, length = 30)
     private TipoPenalizacion tipo;
 
+    /** Módulo que originó la penalización (préstamo, reserva, tutoría o general). */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen", nullable = false, length = 20)
+    private OrigenPenalizacion origen = OrigenPenalizacion.GENERAL;
+
     @Column(name = "motivo", nullable = false, length = 300)
     private String motivo;
+
+    /** Cómo resolver/levantar la penalización (monto en pensión, descuento a docente o solo suspensión). */
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modo_resolucion", nullable = false, length = 25)
+    private ModoResolucion modoResolucion = ModoResolucion.SUSPENSION_RECURSOS;
+
+    /** Monto a pagar/descontar, cuando la resolución es económica. */
+    @Column(name = "monto", precision = 10, scale = 2)
+    private java.math.BigDecimal monto;
+
+    /** Detalle de instrucciones para que el usuario resuelva la penalización. */
+    @Column(name = "instrucciones_resolucion", length = 500)
+    private String instruccionesResolucion;
 
     @Column(name = "fecha_inicio", nullable = false)
     private LocalDateTime fechaInicio;

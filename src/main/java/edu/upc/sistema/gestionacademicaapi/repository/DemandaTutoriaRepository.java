@@ -19,6 +19,12 @@ public interface DemandaTutoriaRepository extends JpaRepository<DemandaTutoria, 
 
     List<DemandaTutoria> findBySesion_Id(Long sesionId);
 
+    boolean existsBySesion_IdAndAlumno_Id(Long sesionId, Long alumnoId);
+
+    List<DemandaTutoria> findBySesion_IdAndAlumno_Id(Long sesionId, Long alumnoId);
+
+    List<DemandaTutoria> findByMateria_IdAndAlumno_IdAndSesionIsNull(Long materiaId, Long alumnoId);
+
     long countBySesion_IdAndEnListaEsperaFalse(Long sesionId);
 
     long countBySesion_IdAndEnListaEsperaTrue(Long sesionId);

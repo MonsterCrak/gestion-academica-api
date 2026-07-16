@@ -6,6 +6,8 @@ import edu.upc.sistema.gestionacademicaapi.dto.PenalizacionResponse;
 import edu.upc.sistema.gestionacademicaapi.entity.Penalizacion;
 import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
 import edu.upc.sistema.gestionacademicaapi.enums.EstadoUsuario;
+import edu.upc.sistema.gestionacademicaapi.enums.ModoResolucion;
+import edu.upc.sistema.gestionacademicaapi.enums.OrigenPenalizacion;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoPenalizacion;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
 import edu.upc.sistema.gestionacademicaapi.exception.AccesoNoAutorizadoException;
@@ -62,7 +64,9 @@ public class PenalizacionService {
     public Penalizacion aplicarPorRetraso(Usuario usuario, Long prestamoId, long diasRetraso) {
         long dias = Math.max(1, diasRetraso);
         String motivo = "Devolucion fuera de plazo (" + diasRetraso + " dia(s) de retraso)";
-        return crear(usuario, TipoPenalizacion.RETRASO_DEVOLUCION, motivo, dias, prestamoId);
+        return crear(usuario, TipoPenalizacion.RETRASO_DEVOLUCION, OrigenPenalizacion.PRESTAMO, motivo, dias, prestamoId,
+                ModoResolucion.SUSPENSION_RECURSOS, null,
+                "La penalizacion se levanta automaticamente al vencer el bloqueo. Devuelve el equipo a tiempo en adelante.");
     }
 
     /** HU-20: penalizacion manual creada por un administrador. */
@@ -71,7 +75,53 @@ public class PenalizacionService {
         currentUserService.exigirTipo(TipoUsuario.ADMINISTRATIVO);
         Usuario usuario = usuarioRepository.findById(req.getUsuarioId())
                 .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", req.getUsuarioId()));
-        Penalizacion p = crear(usuario, req.getTipo(), req.getMotivo(), req.getDiasBloqueo(), null);
+        OrigenPenalizacion origen = req.getOrigen() != null ? req.getOrigen() : OrigenPenalizacion.GENERAL;
+        ModoResolucion modo = req.getModoResolucion() != null ? req.getModoResolucion() : ModoResolucion.SUSPENSION_RECURSOS;
+        Penalizacion p = crear(usuario, req.getTipo(), origen, req.getMotivo(), req.getDiasBloqueo(), null,
+                modo, req.getMonto(), req.getInstruccionesResolucion());
+        return toResponse(p);
+    }
+
+    /** El administrador levanta manualmente una penalización vigente (la resuelve antes de su vencimiento). */
+    @Transactional
+    public PenalizacionResponse levantar(Long id) {
+        currentUserService.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        Penalizacion p = repository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Penalizacion", id));
+        if (!Boolean.TRUE.equals(p.getActiva())) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "La penalizacion ya no esta vigente");
+        }
+        p.setActiva(false);
+        Penalizacion saved = repository.save(p);
+
+        Usuario u = p.getUsuario();
+        recomputarBloqueo(u);
+        usuarioRepository.save(u);
+
+        auditoriaService.registrar(AuditoriaService.LEVANTA_PENALIZACION, "Penalizacion",
+                String.valueOf(p.getId()), AuditoriaService.OK, "Penalizacion levantada manualmente por administrador");
+        notificacionService.notificar(u, NotificacionService.PENALIZACION, "Penalizacion levantada",
+                "Tu penalizacion por \"" + p.getMotivo() + "\" fue levantada. "
+                        + (u.isBloqueadoParaOperar()
+                            ? "Aun tienes otras restricciones vigentes en tu cuenta."
+                            : "Tu cuenta vuelve a estar habilitada para operar."));
+        return toResponse(saved);
+    }
+
+    /** Reenvía al usuario un mensaje con el detalle de cómo resolver la penalización. */
+    @Transactional
+    public PenalizacionResponse enviarMensaje(Long id, String mensajeExtra) {
+        currentUserService.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        Penalizacion p = repository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException("Penalizacion", id));
+        String cuerpo = describirResolucion(p);
+        if (mensajeExtra != null && !mensajeExtra.isBlank()) {
+            cuerpo = mensajeExtra.trim() + "\n\n" + cuerpo;
+        }
+        notificacionService.notificar(p.getUsuario(), NotificacionService.PENALIZACION,
+                "Como resolver tu penalizacion", cuerpo);
+        auditoriaService.registrar(AuditoriaService.APLICA_PENALIZACION, "Penalizacion",
+                String.valueOf(p.getId()), AuditoriaService.OK, "Mensaje de resolucion enviado al usuario");
         return toResponse(p);
     }
 
@@ -136,12 +186,19 @@ public class PenalizacionService {
 
     // --- internos ---
 
-    private Penalizacion crear(Usuario usuario, TipoPenalizacion tipo, String motivo, long diasBloqueo, Long prestamoId) {
+    private Penalizacion crear(Usuario usuario, TipoPenalizacion tipo, OrigenPenalizacion origen,
+                               String motivo, long diasBloqueo, Long prestamoId,
+                               ModoResolucion modoResolucion, java.math.BigDecimal monto, String instrucciones) {
         LocalDateTime ahora = LocalDateTime.now();
+        ModoResolucion modo = modoResolucion != null ? modoResolucion : ModoResolucion.SUSPENSION_RECURSOS;
         Penalizacion p = repository.save(Penalizacion.builder()
                 .usuario(usuario)
                 .tipo(tipo)
+                .origen(origen != null ? origen : OrigenPenalizacion.GENERAL)
                 .motivo(motivo)
+                .modoResolucion(modo)
+                .monto(modo == ModoResolucion.SUSPENSION_RECURSOS ? null : monto)
+                .instruccionesResolucion(instrucciones)
                 .fechaInicio(ahora)
                 .fechaFin(ahora.plusDays(diasBloqueo))
                 .activa(true)
@@ -157,8 +214,29 @@ public class PenalizacionService {
 
         notificacionService.notificar(usuario, NotificacionService.PENALIZACION,
                 "Se aplico una penalizacion en tu cuenta",
-                motivo + ". Bloqueo vigente hasta " + p.getFechaFin() + ".");
+                motivo + ".\n\n" + describirResolucion(p));
         return p;
+    }
+
+    /** Construye un texto legible con el detalle y la forma de resolver la penalización. */
+    private String describirResolucion(Penalizacion p) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Penalizado hasta: ").append(p.getFechaFin()).append(".\n");
+        ModoResolucion modo = p.getModoResolucion() != null ? p.getModoResolucion() : ModoResolucion.SUSPENSION_RECURSOS;
+        switch (modo) {
+            case PAGO_PENSION -> sb.append("Para resolverlo: se cargara un monto de S/ ")
+                    .append(p.getMonto() != null ? p.getMonto() : "0")
+                    .append(" en tu siguiente pension.");
+            case DESCUENTO_HABERES -> sb.append("Para resolverlo: se aplicara un descuento de S/ ")
+                    .append(p.getMonto() != null ? p.getMonto() : "0")
+                    .append(" en tus haberes/planilla.");
+            case SUSPENSION_RECURSOS -> sb.append(
+                    "Para resolverlo: cumple el periodo de suspension del uso de recursos de la universidad.");
+        }
+        if (p.getInstruccionesResolucion() != null && !p.getInstruccionesResolucion().isBlank()) {
+            sb.append("\n").append(p.getInstruccionesResolucion());
+        }
+        return sb.toString();
     }
 
     /** Recalcula penalizadoHasta y estado a partir de deuda y penalizaciones activas. */
@@ -180,7 +258,11 @@ public class PenalizacionService {
                 .usuarioId(p.getUsuario().getId())
                 .usuarioIdentificador(p.getUsuario().getIdentificadorCorporativo())
                 .tipo(p.getTipo())
+                .origen(p.getOrigen())
                 .motivo(p.getMotivo())
+                .modoResolucion(p.getModoResolucion())
+                .monto(p.getMonto())
+                .instruccionesResolucion(p.getInstruccionesResolucion())
                 .fechaInicio(p.getFechaInicio())
                 .fechaFin(p.getFechaFin())
                 .activa(p.getActiva())

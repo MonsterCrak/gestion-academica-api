@@ -42,6 +42,12 @@ public class ReservaController {
         return service.aprobadas();
     }
 
+    /** Reservas que el docente autenticado avaló y siguen aprobadas. */
+    @GetMapping("/avaladas")
+    public List<ReservaResponse> avaladas() {
+        return service.misAvaladas();
+    }
+
     @PostMapping("/{id}/aval")
     public ReservaResponse avalar(@PathVariable Long id, @Valid @RequestBody AvalRequest req) {
         return service.avalar(id, req);

@@ -59,9 +59,18 @@ public class SesionTutoria {
     @Column(name = "estado", nullable = false, length = 25)
     private EstadoSesionTutoria estado;
 
-    /** Cupo (aforo del aula asignada). */
+    /** Cupo (aforo del aula asignada o el definido al crear una sesión abierta). */
     @Column(name = "cupo")
     private Integer cupo;
+
+    /**
+     * True si la sesión fue creada directamente por un docente/administrador y admite
+     * inscripción libre de alumnos hasta llenar el cupo. False para las sesiones
+     * consolidadas por maduración de demanda (quórum).
+     */
+    @Builder.Default
+    @Column(name = "abierta", nullable = false)
+    private Boolean abierta = false;
 
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;

@@ -67,8 +67,10 @@ public class PrestamoIndividualService {
             throw new ReglaNegocioException("SIN_CATEGORIA", "El recurso no tiene categoria asignada");
         }
 
-        long activos = repository.countByUsuarioSolicitante_IdAndEstado(yo.getId(), EstadoPrestamo.ACTIVO);
-        if (activos >= categoria.getMaxItemsPorAlumno()) {
+        // Cuenta préstamos activos y pendientes de aprobación hacia el límite de la categoría.
+        long enCurso = repository.countByUsuarioSolicitante_IdAndEstadoIn(
+                yo.getId(), List.of(EstadoPrestamo.ACTIVO, EstadoPrestamo.PENDIENTE));
+        if (enCurso >= categoria.getMaxItemsPorAlumno()) {
             throw new ReglaNegocioException("LIMITE_ITEMS",
                     "Limite de items simultaneos alcanzado para la categoria " + categoria.getNombreCategoria()
                             + " (max=" + categoria.getMaxItemsPorAlumno() + ")");
@@ -84,43 +86,72 @@ public class PrestamoIndividualService {
             throw new ReglaNegocioException("NO_DISPONIBLE", "El recurso no esta disponible");
         }
 
-        LocalDateTime inicio = LocalDateTime.now();
-        LocalDateTime fin;
-        if (req.getModalidad() == ModalidadPrestamo.CAMPUS) {
-            if (Boolean.TRUE.equals(recurso.getRequiereUbicacionFisica())
-                    || recurso.getTipoMovilidad() == TipoMovilidad.FIJO_EN_AULA) {
-                validarHorarioInstitucional(recurso);
-            }
-            int horas = categoria.getTiempoMaximoHoras() != null ? categoria.getTiempoMaximoHoras() : 4;
-            fin = inicio.plusHours(horas);
-        } else {
-            if (recurso.getTipoMovilidad() == TipoMovilidad.FIJO_EN_AULA) {
-                throw new ReglaNegocioException("NO_TRANSPORTABLE",
-                        "Un recurso fijo en aula no puede prestarse en modalidad socioeconomica");
-            }
-            fin = inicio.plusDays(DIAS_CICLO_SOCIOECONOMICO);
+        // La modalidad socioeconómica exige un recurso transportable ya en la solicitud.
+        if (req.getModalidad() == ModalidadPrestamo.SOCIOECONOMICO
+                && recurso.getTipoMovilidad() == TipoMovilidad.FIJO_EN_AULA) {
+            throw new ReglaNegocioException("NO_TRANSPORTABLE",
+                    "Un recurso fijo en aula no puede prestarse en modalidad socioeconomica");
         }
 
-        recurso.setEstado(EstadoRecurso.PRESTADO);
-        recursoRepository.save(recurso);
-
+        LocalDateTime inicio = LocalDateTime.now();
+        // El préstamo nace PENDIENTE: el equipo NO se retira hasta que un administrador lo apruebe.
         PrestamoIndividual pi = PrestamoIndividual.builder()
                 .recurso(recurso)
                 .usuarioSolicitante(yo)
                 .modalidad(req.getModalidad())
                 .fechaInicio(inicio)
-                .fechaFin(fin)
+                .fechaFin(calcularFechaFin(inicio, req.getModalidad(), categoria))
                 .aceptoTerminos(Boolean.TRUE)
                 .versionTerminos(VERSION_TERMINOS)
                 .fechaAceptacionTerminos(inicio)
-                .estado(EstadoPrestamo.ACTIVO)
+                .estado(EstadoPrestamo.PENDIENTE)
                 .build();
 
         PrestamoIndividual saved = repository.save(pi);
         auditoriaService.registrar(AuditoriaService.SOLICITA_PRESTAMO, "Prestamo",
                 String.valueOf(saved.getId()), AuditoriaService.OK,
-                "Modalidad " + req.getModalidad() + " sobre " + recurso.getCodigoInventario());
+                "Solicitud pendiente de aprobacion (" + req.getModalidad() + ") sobre " + recurso.getCodigoInventario());
         return toResponse(saved);
+    }
+
+    /** El administrador aprueba una solicitud pendiente: recién aquí se retira el equipo (pasa a ACTIVO). */
+    @Transactional
+    public PrestamoResponse aprobar(Long prestamoId) {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        PrestamoIndividual pi = repository.findById(prestamoId)
+                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Prestamo no encontrado"));
+        if (pi.getEstado() != EstadoPrestamo.PENDIENTE) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "El prestamo no esta pendiente de aprobacion");
+        }
+        Recurso recurso = pi.getRecurso();
+        if (recurso.getEstado() != EstadoRecurso.DISPONIBLE) {
+            throw new ReglaNegocioException("NO_DISPONIBLE", "El recurso ya no esta disponible");
+        }
+        // Validación de horario institucional para equipos fijos en modalidad campus (al aprobar).
+        if (pi.getModalidad() == ModalidadPrestamo.CAMPUS
+                && (Boolean.TRUE.equals(recurso.getRequiereUbicacionFisica())
+                    || recurso.getTipoMovilidad() == TipoMovilidad.FIJO_EN_AULA)) {
+            validarHorarioInstitucional(recurso);
+        }
+        LocalDateTime inicio = LocalDateTime.now();
+        pi.setFechaInicio(inicio);
+        pi.setFechaFin(calcularFechaFin(inicio, pi.getModalidad(), recurso.getCategoria()));
+        pi.setEstado(EstadoPrestamo.ACTIVO);
+        recurso.setEstado(EstadoRecurso.PRESTADO);
+        recursoRepository.save(recurso);
+
+        PrestamoIndividual saved = repository.save(pi);
+        auditoriaService.registrar(AuditoriaService.SOLICITA_PRESTAMO, "Prestamo",
+                String.valueOf(saved.getId()), AuditoriaService.OK, "Prestamo aprobado por administrador");
+        return toResponse(saved);
+    }
+
+    private LocalDateTime calcularFechaFin(LocalDateTime inicio, ModalidadPrestamo modalidad, CategoriaPolitica categoria) {
+        if (modalidad == ModalidadPrestamo.CAMPUS) {
+            int horas = categoria.getTiempoMaximoHoras() != null ? categoria.getTiempoMaximoHoras() : 4;
+            return inicio.plusHours(horas);
+        }
+        return inicio.plusDays(DIAS_CICLO_SOCIOECONOMICO);
     }
 
     @Transactional
@@ -165,6 +196,46 @@ public class PrestamoIndividualService {
         return toResponse(saved);
     }
 
+    /**
+     * Anula un préstamo activo: el alumno cancela su propia solicitud o el administrador la da de baja.
+     * Libera el recurso y no aplica penalización (a diferencia de la devolución).
+     */
+    @Transactional
+    public PrestamoResponse cancelar(Long prestamoId) {
+        Usuario yo = currentUser.obtenerActual();
+        PrestamoIndividual pi = repository.findById(prestamoId)
+                .orElseThrow(() -> new ReglaNegocioException("NO_ENCONTRADO", "Prestamo no encontrado"));
+
+        boolean esAdmin = yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO;
+        if (!esAdmin && !pi.getUsuarioSolicitante().getId().equals(yo.getId())) {
+            throw new ReglaNegocioException("ACCESO_DENEGADO", "No es dueno del prestamo");
+        }
+        // El alumno solo puede cancelar mientras esté PENDIENTE (antes de la aprobación).
+        if (!esAdmin && pi.getEstado() != EstadoPrestamo.PENDIENTE) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO",
+                    "Solo puedes cancelar un prestamo mientras esta pendiente de aprobacion");
+        }
+        if (pi.getEstado() != EstadoPrestamo.PENDIENTE && pi.getEstado() != EstadoPrestamo.ACTIVO) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "El prestamo no se puede cancelar en su estado actual");
+        }
+
+        boolean estabaActivo = pi.getEstado() == EstadoPrestamo.ACTIVO;
+        pi.setEstado(EstadoPrestamo.CANCELADO);
+        pi.setFechaDevolucion(LocalDateTime.now());
+        if (estabaActivo) {
+            // Solo un préstamo activo tenía el recurso retirado: se libera.
+            Recurso r = pi.getRecurso();
+            r.setEstado(EstadoRecurso.DISPONIBLE);
+            recursoRepository.save(r);
+        }
+
+        PrestamoIndividual saved = repository.save(pi);
+        auditoriaService.registrar(AuditoriaService.DEVUELVE_PRESTAMO, "Prestamo",
+                String.valueOf(saved.getId()), AuditoriaService.OK,
+                esAdmin ? "Prestamo dado de baja/rechazado por administrador" : "Solicitud de prestamo cancelada por el alumno");
+        return toResponse(saved);
+    }
+
     @Transactional(readOnly = true)
     public List<PrestamoResponse> listarMios() {
         Usuario yo = currentUser.obtenerActual();
@@ -176,6 +247,13 @@ public class PrestamoIndividualService {
     public List<PrestamoResponse> listarActivos() {
         currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
         return repository.findByEstadoOrderByFechaFinAsc(EstadoPrestamo.ACTIVO)
+                .stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PrestamoResponse> listarPendientes() {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        return repository.findByEstadoOrderByFechaInicioDesc(EstadoPrestamo.PENDIENTE)
                 .stream().map(this::toResponse).toList();
     }
 

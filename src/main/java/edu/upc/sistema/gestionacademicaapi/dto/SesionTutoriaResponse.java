@@ -27,4 +27,10 @@ public class SesionTutoriaResponse {
     private EstadoSesionTutoria estado;
     private long inscritos;
     private long enListaEspera;
+
+    /** True si admite inscripción libre de alumnos hasta el cupo (sesión creada por docente/admin). */
+    private boolean abierta;
+
+    /** True si el alumno autenticado ya está inscrito en esta sesión. */
+    private boolean yaInscrito;
 }

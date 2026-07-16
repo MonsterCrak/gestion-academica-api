@@ -1,6 +1,7 @@
 package edu.upc.sistema.gestionacademicaapi.controller;
 
 import edu.upc.sistema.gestionacademicaapi.dto.DeudaUpdateRequest;
+import edu.upc.sistema.gestionacademicaapi.dto.MensajeResolucionRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.PenalizacionCreateRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.PenalizacionResponse;
 import edu.upc.sistema.gestionacademicaapi.service.PenalizacionService;
@@ -36,6 +37,19 @@ public class PenalizacionController {
     @PostMapping
     public PenalizacionResponse aplicar(@Valid @RequestBody PenalizacionCreateRequest req) {
         return service.aplicarManual(req);
+    }
+
+    /** Envía al usuario un mensaje con el detalle de cómo resolver la penalización. */
+    @PostMapping("/{id}/mensaje")
+    public PenalizacionResponse enviarMensaje(@PathVariable Long id,
+                                              @Valid @RequestBody(required = false) MensajeResolucionRequest req) {
+        return service.enviarMensaje(id, req != null ? req.getMensaje() : null);
+    }
+
+    /** El administrador levanta manualmente una penalización vigente. */
+    @PostMapping("/{id}/levantar")
+    public PenalizacionResponse levantar(@PathVariable Long id) {
+        return service.levantar(id);
     }
 
     @PutMapping("/usuario/{id}/deuda")

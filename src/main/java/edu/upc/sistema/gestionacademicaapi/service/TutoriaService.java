@@ -1,8 +1,10 @@
 package edu.upc.sistema.gestionacademicaapi.service;
 
 import edu.upc.sistema.gestionacademicaapi.dto.AsignarSesionRequest;
+import edu.upc.sistema.gestionacademicaapi.dto.CrearSesionTutoriaRequest;
 import edu.upc.sistema.gestionacademicaapi.dto.DemandaMateriaResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.InscribirTutoriaRequest;
+import edu.upc.sistema.gestionacademicaapi.dto.InscritoTutoriaResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.InscripcionTutoriaResponse;
 import edu.upc.sistema.gestionacademicaapi.dto.SesionTutoriaResponse;
 import edu.upc.sistema.gestionacademicaapi.entity.DemandaTutoria;
@@ -13,6 +15,7 @@ import edu.upc.sistema.gestionacademicaapi.entity.SesionTutoria;
 import edu.upc.sistema.gestionacademicaapi.entity.Usuario;
 import edu.upc.sistema.gestionacademicaapi.enums.EstadoSesionTutoria;
 import edu.upc.sistema.gestionacademicaapi.enums.TipoUsuario;
+import edu.upc.sistema.gestionacademicaapi.exception.AccesoNoAutorizadoException;
 import edu.upc.sistema.gestionacademicaapi.exception.RecursoNoEncontradoException;
 import edu.upc.sistema.gestionacademicaapi.exception.ReglaNegocioException;
 import edu.upc.sistema.gestionacademicaapi.repository.DemandaTutoriaRepository;
@@ -27,7 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 
@@ -42,6 +47,7 @@ import java.util.Objects;
 public class TutoriaService {
 
     private static final int QUORUM = 5;
+    private static final String ENTIDAD_TUTORIA = "Tutoria";
 
     private final DemandaTutoriaRepository demandaRepository;
     private final SesionTutoriaRepository sesionRepository;
@@ -78,7 +84,7 @@ public class TutoriaService {
                 .enListaEspera(false)
                 .build());
 
-        auditoriaService.registrar(AuditoriaService.INSCRIBE_TUTORIA, "Tutoria",
+        auditoriaService.registrar(AuditoriaService.INSCRIBE_TUTORIA, ENTIDAD_TUTORIA,
                 String.valueOf(materia.getId()), AuditoriaService.OK,
                 "Inscripcion en demanda de " + materia.getCodigo());
 
@@ -88,6 +94,107 @@ public class TutoriaService {
             consolidar(materia);
         }
         return demandaMateria(materia, yo.getId());
+    }
+
+    /**
+     * Creación directa de una sesión de tutoría por un docente o administrador, con cupo
+     * de participantes. Queda abierta a inscripción libre de alumnos hasta llenar el cupo,
+     * en paralelo al flujo de maduración por quórum.
+     */
+    @Transactional
+    public SesionTutoriaResponse crearSesion(CrearSesionTutoriaRequest req) {
+        Usuario yo = currentUser.obtenerActual();
+        if (yo.getTipoUsuario() != TipoUsuario.DOCENTE && yo.getTipoUsuario() != TipoUsuario.ADMINISTRATIVO) {
+            throw new AccesoNoAutorizadoException("Solo docentes o administradores pueden crear tutorias");
+        }
+
+        Materia materia = materiaRepository.findById(req.getMateriaId())
+                .orElseThrow(() -> new RecursoNoEncontradoException("Materia", req.getMateriaId()));
+
+        Usuario docente;
+        if (yo.getTipoUsuario() == TipoUsuario.DOCENTE) {
+            docente = yo;
+        } else {
+            if (req.getDocenteId() == null) {
+                throw new ReglaNegocioException("DOCENTE_REQUERIDO", "Debe indicar el docente a cargo de la tutoria");
+            }
+            docente = usuarioRepository.findById(req.getDocenteId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("Usuario", req.getDocenteId()));
+            if (docente.getTipoUsuario() != TipoUsuario.DOCENTE) {
+                throw new ReglaNegocioException("DOCENTE_INVALIDO", "El usuario asignado debe ser docente");
+            }
+        }
+
+        EspacioFisico aula = null;
+        if (req.getAulaId() != null) {
+            aula = espacioRepository.findById(req.getAulaId())
+                    .orElseThrow(() -> new RecursoNoEncontradoException("EspacioFisico", req.getAulaId()));
+        }
+
+        int cupo = req.getCupo();
+        if (aula != null && aula.getAforo() != null && cupo > aula.getAforo()) {
+            cupo = aula.getAforo(); // el cupo no puede exceder el aforo del aula elegida
+        }
+
+        LocalDateTime inicio = req.getFechaHoraInicio();
+        SesionTutoria sesion = sesionRepository.save(SesionTutoria.builder()
+                .materia(materia)
+                .docente(docente)
+                .aula(aula)
+                .fechaHoraInicio(inicio)
+                .fechaHoraFin(inicio.plusHours(2))
+                .estado(EstadoSesionTutoria.CONFIRMADA)
+                .cupo(cupo)
+                .abierta(true)
+                .fechaCreacion(LocalDateTime.now())
+                .build());
+
+        auditoriaService.registrar(AuditoriaService.CONSOLIDA_TUTORIA, ENTIDAD_TUTORIA,
+                String.valueOf(sesion.getId()), AuditoriaService.OK,
+                "Sesion abierta creada por " + yo.getIdentificadorCorporativo() + " para "
+                        + materia.getCodigo() + " (cupo " + cupo + ")");
+        log.info("Sesion de tutoria abierta creada: materia={} docente={} cupo={}",
+                materia.getCodigo(), docente.getIdentificadorCorporativo(), cupo);
+        return sesionResponse(sesion, null);
+    }
+
+    /** El alumno se inscribe directamente en una sesión abierta, mientras haya cupo. */
+    @Transactional
+    public SesionTutoriaResponse inscribirEnSesion(Long sesionId) {
+        Usuario yo = currentUser.obtenerActual();
+        if (yo.getTipoUsuario() != TipoUsuario.ESTUDIANTE) {
+            throw new ReglaNegocioException("TIPO_INVALIDO", "Solo estudiantes pueden inscribirse en tutorias");
+        }
+        penalizacionService.verificarPuedeOperar(yo, "Inscripcion en tutoria");
+
+        SesionTutoria sesion = sesionRepository.findById(sesionId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("SesionTutoria", sesionId));
+        if (!Boolean.TRUE.equals(sesion.getAbierta()) || sesion.getEstado() != EstadoSesionTutoria.CONFIRMADA) {
+            throw new ReglaNegocioException("NO_INSCRIBIBLE", "Esta sesion no admite inscripcion libre");
+        }
+        if (demandaRepository.existsBySesion_IdAndAlumno_Id(sesionId, yo.getId())) {
+            throw new ReglaNegocioException("YA_INSCRITO", "Ya estas inscrito en esta tutoria");
+        }
+        long inscritos = demandaRepository.countBySesion_IdAndEnListaEsperaFalse(sesionId);
+        if (sesion.getCupo() != null && inscritos >= sesion.getCupo()) {
+            throw new ReglaNegocioException("CUPO_LLENO", "La tutoria ya alcanzo su cupo de participantes");
+        }
+
+        demandaRepository.save(DemandaTutoria.builder()
+                .materia(sesion.getMateria())
+                .alumno(yo)
+                .sesion(sesion)
+                .fechaInscripcion(LocalDateTime.now())
+                .enListaEspera(false)
+                .build());
+
+        auditoriaService.registrar(AuditoriaService.INSCRIBE_TUTORIA, ENTIDAD_TUTORIA,
+                String.valueOf(sesionId), AuditoriaService.OK,
+                "Inscripcion en sesion abierta de " + sesion.getMateria().getCodigo());
+        notificacionService.notificar(yo, NotificacionService.TUTORIA_CONFIRMADA,
+                "Inscripcion confirmada en tutoria",
+                "Te inscribiste en la tutoria de " + sesion.getMateria().getNombre() + ".");
+        return sesionResponse(sesion, yo.getId());
     }
 
     /** HU-17: empareja docente + aula y confirma la sesión; excedentes a sala de espera (HU-18). */
@@ -131,12 +238,65 @@ public class TutoriaService {
             idx++;
         }
 
-        auditoriaService.registrarComo(null, AuditoriaService.CONSOLIDA_TUTORIA, "Tutoria",
+        auditoriaService.registrarComo(null, AuditoriaService.CONSOLIDA_TUTORIA, ENTIDAD_TUTORIA,
                 String.valueOf(sesion.getId()), AuditoriaService.OK,
                 "Consolidada " + materia.getCodigo() + " con " + pendientes.size() + " inscritos"
                         + (completo ? " (docente y aula asignados)" : " (EN ESPERA de recursos)"));
         log.info("Tutoria consolidada: materia={} inscritos={} estado={}",
                 materia.getCodigo(), pendientes.size(), sesion.getEstado());
+    }
+
+    /** El alumno cancela su inscripción pendiente en la demanda de una asignatura (antes de consolidarse). */
+    @Transactional
+    public void cancelarDemanda(Long materiaId) {
+        Usuario yo = currentUser.obtenerActual();
+        List<DemandaTutoria> pendientes =
+                demandaRepository.findByMateria_IdAndAlumno_IdAndSesionIsNull(materiaId, yo.getId());
+        if (pendientes.isEmpty()) {
+            throw new ReglaNegocioException("NO_INSCRITO", "No tienes una inscripcion pendiente en esta asignatura");
+        }
+        demandaRepository.deleteAll(pendientes);
+        auditoriaService.registrar(AuditoriaService.INSCRIBE_TUTORIA, ENTIDAD_TUTORIA, String.valueOf(materiaId),
+                AuditoriaService.OK, "Cancelacion de inscripcion en demanda de tutoria");
+    }
+
+    /** El alumno se retira de una sesión abierta (antes de que se realice). */
+    @Transactional
+    public void cancelarInscripcionSesion(Long sesionId) {
+        Usuario yo = currentUser.obtenerActual();
+        SesionTutoria sesion = sesionRepository.findById(sesionId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("SesionTutoria", sesionId));
+        if (sesion.getEstado() == EstadoSesionTutoria.REALIZADA) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "La tutoria ya se realizo");
+        }
+        List<DemandaTutoria> mias = demandaRepository.findBySesion_IdAndAlumno_Id(sesionId, yo.getId());
+        if (mias.isEmpty()) {
+            throw new ReglaNegocioException("NO_INSCRITO", "No estas inscrito en esta tutoria");
+        }
+        demandaRepository.deleteAll(mias);
+        auditoriaService.registrar(AuditoriaService.INSCRIBE_TUTORIA, ENTIDAD_TUTORIA, String.valueOf(sesionId),
+                AuditoriaService.OK, "Cancelacion de inscripcion en sesion de tutoria");
+    }
+
+    /** El administrador da de baja una sesión de tutoría (queda CANCELADA para todos). */
+    @Transactional
+    public SesionTutoriaResponse cancelarSesion(Long sesionId) {
+        currentUser.exigirTipo(TipoUsuario.ADMINISTRATIVO);
+        SesionTutoria sesion = sesionRepository.findById(sesionId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("SesionTutoria", sesionId));
+        if (sesion.getEstado() == EstadoSesionTutoria.REALIZADA || sesion.getEstado() == EstadoSesionTutoria.CANCELADA) {
+            throw new ReglaNegocioException("ESTADO_INVALIDO", "La sesion ya esta finalizada");
+        }
+        sesion.setEstado(EstadoSesionTutoria.CANCELADA);
+        sesion.setAbierta(false);
+        SesionTutoria saved = sesionRepository.save(sesion);
+        demandaRepository.findBySesion_Id(sesionId).forEach(d ->
+                notificacionService.notificar(d.getAlumno(), NotificacionService.RESERVA_RESUELTA,
+                        "Tutoria cancelada",
+                        "La tutoria de " + sesion.getMateria().getNombre() + " fue dada de baja por la administracion."));
+        auditoriaService.registrar(AuditoriaService.CONSOLIDA_TUTORIA, ENTIDAD_TUTORIA, String.valueOf(sesionId),
+                AuditoriaService.OK, "Sesion de tutoria dada de baja por administrador");
+        return sesionResponse(saved, null);
     }
 
     /** HU-18/CP-15: el coordinador asigna manualmente docente y aula a una sesión en espera. */
@@ -175,9 +335,9 @@ public class TutoriaService {
             notificarInscrito(d.getAlumno(), sesion.getMateria(), true, espera, inicio);
             idx++;
         }
-        auditoriaService.registrar(AuditoriaService.CONSOLIDA_TUTORIA, "Tutoria", String.valueOf(sesionId),
+        auditoriaService.registrar(AuditoriaService.CONSOLIDA_TUTORIA, ENTIDAD_TUTORIA, String.valueOf(sesionId),
                 AuditoriaService.OK, "Asignacion manual de docente y aula");
-        return sesionResponse(saved);
+        return sesionResponse(saved, null);
     }
 
     @Transactional(readOnly = true)
@@ -195,19 +355,62 @@ public class TutoriaService {
                 .stream().map(this::inscripcionResponse).toList();
     }
 
+    /** Lista los alumnos inscritos en una sesión. Solo el administrador o el docente a cargo. */
+    @Transactional(readOnly = true)
+    public List<InscritoTutoriaResponse> listarInscritos(Long sesionId) {
+        Usuario yo = currentUser.obtenerActual();
+        SesionTutoria sesion = sesionRepository.findById(sesionId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("SesionTutoria", sesionId));
+        boolean esAdmin = yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO;
+        boolean esDocenteACargo = sesion.getDocente() != null && sesion.getDocente().getId().equals(yo.getId());
+        if (!esAdmin && !esDocenteACargo) {
+            throw new AccesoNoAutorizadoException("Solo el docente a cargo o un administrador pueden ver los inscritos");
+        }
+        return demandaRepository.findBySesion_Id(sesionId).stream()
+                .sorted((a, b) -> {
+                    int cmp = Boolean.compare(Boolean.TRUE.equals(a.getEnListaEspera()), Boolean.TRUE.equals(b.getEnListaEspera()));
+                    if (cmp != 0) {
+                        return cmp; // primero los confirmados, luego los de sala de espera
+                    }
+                    return a.getFechaInscripcion().compareTo(b.getFechaInscripcion());
+                })
+                .map(d -> {
+                    Usuario a = d.getAlumno();
+                    return InscritoTutoriaResponse.builder()
+                            .alumnoId(a.getId())
+                            .identificadorCorporativo(a.getIdentificadorCorporativo())
+                            .nombre(a.getNombre())
+                            .apellidos(a.getApellidos())
+                            .email(a.getEmail())
+                            .fechaInscripcion(d.getFechaInscripcion())
+                            .enListaEspera(Boolean.TRUE.equals(d.getEnListaEspera()))
+                            .build();
+                })
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<SesionTutoriaResponse> listarSesiones() {
         Usuario yo = currentUser.obtenerActual();
         List<SesionTutoria> sesiones;
+        Long alumnoId = null;
         if (yo.getTipoUsuario() == TipoUsuario.ADMINISTRATIVO) {
             sesiones = sesionRepository.findAllByOrderByFechaCreacionDesc();
         } else if (yo.getTipoUsuario() == TipoUsuario.DOCENTE) {
             sesiones = sesionRepository.findByDocente_IdOrderByFechaHoraInicioAsc(yo.getId());
         } else {
-            sesiones = demandaRepository.findByAlumno_IdOrderByFechaInscripcionDesc(yo.getId()).stream()
-                    .map(DemandaTutoria::getSesion).filter(Objects::nonNull).distinct().toList();
+            alumnoId = yo.getId();
+            // El alumno ve las sesiones abiertas a inscripción libre + aquellas en las que ya participa.
+            LinkedHashMap<Long, SesionTutoria> unicas = new LinkedHashMap<>();
+            sesionRepository.findByAbiertaTrueAndEstadoOrderByFechaHoraInicioAsc(EstadoSesionTutoria.CONFIRMADA)
+                    .forEach(s -> unicas.put(s.getId(), s));
+            demandaRepository.findByAlumno_IdOrderByFechaInscripcionDesc(yo.getId()).stream()
+                    .map(DemandaTutoria::getSesion).filter(Objects::nonNull)
+                    .forEach(s -> unicas.put(s.getId(), s));
+            sesiones = new ArrayList<>(unicas.values());
         }
-        return sesiones.stream().map(this::sesionResponse).toList();
+        final Long aid = alumnoId;
+        return sesiones.stream().map(s -> sesionResponse(s, aid)).toList();
     }
 
     // --- internos ---
@@ -256,7 +459,7 @@ public class TutoriaService {
                 .build();
     }
 
-    private SesionTutoriaResponse sesionResponse(SesionTutoria s) {
+    private SesionTutoriaResponse sesionResponse(SesionTutoria s, Long alumnoId) {
         return SesionTutoriaResponse.builder()
                 .id(s.getId())
                 .materiaCodigo(s.getMateria().getCodigo())
@@ -270,6 +473,9 @@ public class TutoriaService {
                 .estado(s.getEstado())
                 .inscritos(demandaRepository.countBySesion_IdAndEnListaEsperaFalse(s.getId()))
                 .enListaEspera(demandaRepository.countBySesion_IdAndEnListaEsperaTrue(s.getId()))
+                .abierta(Boolean.TRUE.equals(s.getAbierta()))
+                .yaInscrito(alumnoId != null
+                        && demandaRepository.existsBySesion_IdAndAlumno_Id(s.getId(), alumnoId))
                 .build();
     }
 }

@@ -37,9 +37,26 @@ public class PrestamoIndividualController {
         return service.listarActivos();
     }
 
+    @GetMapping("/pendientes")
+    public List<PrestamoResponse> pendientes() {
+        return service.listarPendientes();
+    }
+
+    /** El administrador aprueba una solicitud pendiente (pasa a ACTIVO y se retira el equipo). */
+    @PostMapping("/{id}/aprobar")
+    public PrestamoResponse aprobar(@PathVariable Long id) {
+        return service.aprobar(id);
+    }
+
     @PostMapping("/{id}/devolver")
     public PrestamoResponse devolver(@PathVariable Long id,
                                      @RequestBody(required = false) DevolucionRequest req) {
         return service.devolver(id, req);
+    }
+
+    /** El alumno cancela su préstamo activo; el administrador puede darlo de baja. */
+    @PostMapping("/{id}/cancelar")
+    public PrestamoResponse cancelar(@PathVariable Long id) {
+        return service.cancelar(id);
     }
 }

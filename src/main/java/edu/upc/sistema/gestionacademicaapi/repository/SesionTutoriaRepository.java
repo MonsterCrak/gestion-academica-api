@@ -14,5 +14,8 @@ public interface SesionTutoriaRepository extends JpaRepository<SesionTutoria, Lo
 
     List<SesionTutoria> findByDocente_IdOrderByFechaHoraInicioAsc(Long docenteId);
 
+    /** Sesiones abiertas a inscripción libre de alumnos (creadas por docente/admin). */
+    List<SesionTutoria> findByAbiertaTrueAndEstadoOrderByFechaHoraInicioAsc(EstadoSesionTutoria estado);
+
     long countByEstado(EstadoSesionTutoria estado);
 }
